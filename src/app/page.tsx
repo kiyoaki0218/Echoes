@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { PenTool, X, Heart } from "lucide-react";
+import { PenTool, X, Heart, Trash2 } from "lucide-react";
 
 type Mode = "bubble" | "will";
 
@@ -210,6 +210,38 @@ export default function Home() {
       setMyEchoes(statuses.reverse());
     } catch (err) {
       console.error("Error fetching my echoes status:", err);
+    }
+  };
+
+  const handleDeleteMyEcho = async (id: string, isDeletedFromDb: boolean) => {
+    if (!confirm("この投稿をデータベースおよび履歴から完全に消去しますか？")) return;
+
+    if (!isDeletedFromDb) {
+      try {
+        const { error } = await supabase
+          .from("echoes")
+          .delete()
+          .eq("id", id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error("Error deleting echo from DB:", err);
+      }
+    }
+
+    // LocalStorageから削除
+    const saved = localStorage.getItem("my_echoes");
+    if (saved) {
+      const list = JSON.parse(saved) as { id: string; content: string }[];
+      const newList = list.filter(item => item.id !== id);
+      localStorage.setItem("my_echoes", JSON.stringify(newList));
+    }
+
+    // ステートを更新
+    setMyEchoes(prev => prev.filter(echo => echo.id !== id));
+
+    // 現在表示されている投稿が削除されたものなら画面をリフレッシュ
+    if (currentEcho && currentEcho.id === id) {
+      fetchRandomEcho(mode);
     }
   };
 
@@ -429,18 +461,27 @@ export default function Home() {
                 </p>
               ) : (
                 myEchoes.map((echo) => (
-                  <div key={echo.id} className="p-4 bg-neutral-950/50 border border-neutral-800/50 rounded-xl space-y-3">
-                    <p className="text-sm text-neutral-300 line-clamp-2 italic font-light">
-                      &ldquo;{echo.content}&rdquo;
-                    </p>
+                  <div key={echo.id} className="p-4 bg-neutral-950/50 border border-neutral-800/50 rounded-xl flex flex-col space-y-3">
+                    <div className="flex justify-between items-start gap-4">
+                      <p className="text-sm text-neutral-300 italic font-light flex-1">
+                        &ldquo;{echo.content}&rdquo;
+                      </p>
+                      <button
+                        onClick={() => handleDeleteMyEcho(echo.id, echo.is_deleted)}
+                        className="text-neutral-600 hover:text-red-400 transition-colors p-1"
+                        title="この投稿を消去"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                     
                     {echo.is_deleted ? (
-                      <div className="flex justify-between items-center text-[10px] text-neutral-600 font-sans">
+                      <div className="flex justify-between items-center text-[10px] text-neutral-600 font-sans pt-1 border-t border-neutral-900/50">
                         <span>消滅しました</span>
                         <span>共鳴: -</span>
                       </div>
                     ) : (
-                      <div className="flex justify-between items-center text-[10px] text-neutral-400 font-sans">
+                      <div className="flex justify-between items-center text-[10px] text-neutral-400 font-sans pt-1 border-t border-neutral-900/50">
                         <span className="text-neutral-500">残り寿命: <strong className="text-neutral-300 font-medium">{echo.remaining_views}</strong> 回表示</span>
                         <span className="flex items-center gap-1"><Heart className="w-2.5 h-2.5 text-red-500/80 fill-red-950/20" /> 共鳴数: {echo.resonance_count}</span>
                       </div>
