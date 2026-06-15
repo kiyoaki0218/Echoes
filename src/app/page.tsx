@@ -30,9 +30,10 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(true);
   const [resonateLoading, setResonateLoading] = useState<boolean>(false);
   const [fade, setFade] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const [showForm, setShowForm] = useState<boolean>(false);
-  const [inputContent, setInputContent] = useState<string>(" ");
+  const [inputContent, setInputContent] = useState<string>("");
   const [formMode, setFormMode] = useState<Mode>("bubble");
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -43,6 +44,7 @@ export default function Home() {
 
   const fetchRandomEcho = async (selectedMode: Mode) => {
     setFade(false);
+    setErrorMsg(null);
     setTimeout(async () => {
       try {
         setLoading(true);
@@ -59,8 +61,9 @@ export default function Home() {
         } else {
           setCurrentEcho(null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching random echo:", err);
+        setErrorMsg("データの取得に失敗しました。Supabaseの接続設定（URLやKey）を確認してください。");
       } finally {
         setLoading(false);
         setFade(true);
@@ -114,8 +117,9 @@ export default function Home() {
           return prev;
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error resonating:", err);
+      alert("共鳴処理に失敗しました: " + err.message);
     } finally {
       setResonateLoading(false);
     }
@@ -150,15 +154,16 @@ export default function Home() {
         list.push({ id: newEcho.id, content: newEcho.content.substring(0, 30) + (newEcho.content.length > 30 ? "..." : "") });
         localStorage.setItem("my_echoes", JSON.stringify(list));
         
-        setInputContent(" ");
+        setInputContent("");
         setShowForm(false);
         fetchMyEchoesStatus();
 
         setMode(formMode);
         fetchRandomEcho(formMode);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error posting echo:", err);
+      alert("投稿に失敗しました。Supabaseの接続やテーブル・ポリシーの設定を確認してください。\nエラー: " + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -237,7 +242,7 @@ export default function Home() {
                 : "text-neutral-500 hover:text-neutral-300"
             }`}
           >
-            泡沫 <span className="text-[10px] opacity-70">Bubble</span>
+            短文
           </button>
           <button
             onClick={() => handleModeChange("will")}
@@ -247,7 +252,7 @@ export default function Home() {
                 : "text-neutral-500 hover:text-neutral-300"
             }`}
           >
-            遺言 <span className="text-[10px] opacity-70">Will</span>
+            長文
           </button>
         </div>
       </header>
@@ -256,7 +261,11 @@ export default function Home() {
         <div className={`w-full transition-opacity duration-300 flex flex-col items-center ${fade ? "opacity-100" : "opacity-0"}`}>
           {loading ? (
             <div className="text-neutral-500 text-sm tracking-widest animate-pulse font-sans">
-              闇よりすくい上げています...
+              投稿を取得しています...
+            </div>
+          ) : errorMsg ? (
+            <div className="text-red-450/80 text-sm text-center tracking-wide font-sans max-w-md bg-red-950/20 border border-red-900/30 p-4 rounded-xl">
+              {errorMsg}
             </div>
           ) : currentEcho ? (
             <div className="w-full flex flex-col items-center text-center">
@@ -276,8 +285,8 @@ export default function Home() {
                   ></div>
                 </div>
                 <div className="flex justify-between text-[11px] text-neutral-500 font-sans tracking-wider">
-                  <span>閲覧: {currentEcho.view_count}</span>
-                  <span>寿命: {currentEcho.max_views} 回表示</span>
+                  <span>表示回数: {currentEcho.view_count} / {currentEcho.max_views}</span>
+                  <span>（上限に達すると自動消滅します）</span>
                 </div>
               </div>
 
@@ -295,18 +304,18 @@ export default function Home() {
           ) : (
             <div className="text-center py-12">
               <p className="text-neutral-500 text-sm tracking-widest font-sans">
-                このモードの残響はすべて消え去りました。
+                表示できる投稿がありません。
               </p>
               <p className="text-neutral-600 text-xs mt-2 tracking-wider font-sans">
-                画面をタップして読み直すか、新しい言葉を遺してください。
+                画面をタップして再読み込みするか、新しく投稿してください。
               </p>
             </div>
           )}
         </div>
         
-        {currentEcho && !loading && (
+        {currentEcho && !loading && !errorMsg && (
           <div className="mt-16 text-[10px] text-neutral-600 font-sans tracking-widest animate-pulse pointer-events-none">
-            画面をタップして、次の残響へ
+            画面をタップして次の投稿へ
           </div>
         )}
       </main>
@@ -330,7 +339,7 @@ export default function Home() {
           className="flex items-center gap-2 px-4 py-2 bg-neutral-100 text-neutral-950 rounded-full text-xs font-sans font-medium hover:bg-neutral-200 transition-all active:scale-95 shadow-md"
         >
           <PenTool className="w-3.5 h-3.5" />
-          <span>言葉を遺す</span>
+          <span>投稿する</span>
         </button>
       </footer>
 
@@ -344,7 +353,7 @@ export default function Home() {
               <X className="w-5 h-5" />
             </button>
 
-            <h2 className="text-lg tracking-widest text-neutral-300 font-light mb-6">言葉を遺す</h2>
+            <h2 className="text-lg tracking-widest text-neutral-300 font-light mb-6">新規投稿</h2>
 
             <div className="flex border-b border-neutral-800 mb-6 font-sans">
               <button
@@ -354,7 +363,7 @@ export default function Home() {
                   formMode === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500"
                 }`}
               >
-                泡沫 <span className="text-[10px] opacity-70">(最大60字/100回表示)</span>
+                短文 <span className="text-[10px] opacity-70">(最大60字 / 初期寿命100表示)</span>
                 {formMode === "bubble" && (
                   <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>
                 )}
@@ -366,7 +375,7 @@ export default function Home() {
                   formMode === "will" ? "text-neutral-100 font-medium" : "text-neutral-500"
                 }`}
               >
-                遺言 <span className="text-[10px] opacity-70">(最大800字/500回表示)</span>
+                長文 <span className="text-[10px] opacity-70">(最大800字 / 初期寿命500表示)</span>
                 {formMode === "will" && (
                   <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>
                 )}
@@ -378,7 +387,7 @@ export default function Home() {
                 value={inputContent}
                 onChange={(e) => setInputContent(e.target.value)}
                 maxLength={maxChars}
-                placeholder={formMode === "bubble" ? "泡沫のように消え去る、短い想い..." : "誰かの心に深く残る、長い遺言..."}
+                placeholder={formMode === "bubble" ? "短い想いを入力してください..." : "心に残る長文を入力してください..."}
                 required
                 className="w-full flex-1 min-h-[140px] bg-transparent text-neutral-200 border-0 outline-none resize-none placeholder-neutral-600 text-base font-light leading-relaxed mb-4 focus:ring-0 focus:ring-offset-0"
               />
@@ -393,7 +402,7 @@ export default function Home() {
                   disabled={submitting || !inputContent.trim()}
                   className="px-6 py-2 bg-neutral-100 text-neutral-950 hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 rounded-full text-xs font-sans font-medium transition-colors"
                 >
-                  {submitting ? "放流中..." : "闇に放つ"}
+                  {submitting ? "送信中..." : "投稿する"}
                 </button>
               </div>
             </form>
@@ -416,7 +425,7 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto pr-2 space-y-4">
               {myEchoes.length === 0 ? (
                 <p className="text-neutral-500 text-sm tracking-wider text-center py-12 font-sans">
-                  まだ言葉を遺していません。
+                  まだ投稿していません。
                 </p>
               ) : (
                 myEchoes.map((echo) => (
