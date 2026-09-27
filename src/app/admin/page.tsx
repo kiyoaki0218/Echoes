@@ -110,7 +110,7 @@ export default function AdminDashboard() {
                           {new Date(echo.created_at).toLocaleString('ja-JP')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={\px-2 py-1 rounded text-xs \\}>
+                          <span className={`px-2 py-1 rounded text-xs ${echo.mode === 'bubble' ? 'bg-blue-950/50 text-blue-300 border border-blue-900/50' : 'bg-purple-950/50 text-purple-300 border border-purple-900/50'}`}>
                             {echo.mode === 'bubble' ? '泡沫' : '遺言'}
                           </span>
                         </td>
