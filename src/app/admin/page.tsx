@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getAdminEchoes, deleteAdminEcho, logoutAdmin } from "@/app/actions/admin";
-import { Trash2, LogOut, RefreshCcw } from "lucide-react";
+import { Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp } from "lucide-react";
 
 type Echo = {
   id: string;
@@ -18,6 +18,8 @@ export default function AdminDashboard() {
   const [echoes, setEchoes] = useState<Echo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "bubble" | "will">("all");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const fetchEchoes = async () => {
     setLoading(true);
@@ -46,10 +48,20 @@ export default function AdminDashboard() {
     }
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const filteredEchoes = echoes.filter(echo => filterMode === "all" || echo.mode === filterMode);
+
   return (
     <div className="min-h-screen bg-black text-neutral-200 font-serif p-6">
       <div className="max-w-6xl mx-auto">
-        <header className="flex items-center justify-between border-b border-neutral-800 pb-6 mb-8">
+        <header className="flex items-center justify-between border-b border-neutral-800 pb-6 mb-6">
           <div>
             <h1 className="text-2xl tracking-widest text-neutral-300 font-light mb-1">管理者ダッシュボード</h1>
             <p className="text-sm font-sans text-neutral-500">全投稿の管理</p>
@@ -71,6 +83,27 @@ export default function AdminDashboard() {
             </button>
           </div>
         </header>
+
+        <div className="flex bg-neutral-900/50 p-1 rounded-full w-fit mb-6 border border-neutral-800">
+          <button
+            onClick={() => setFilterMode("all")}
+            className={`px-6 py-2 rounded-full text-sm transition-colors ${filterMode === "all" ? "bg-neutral-800 text-neutral-200" : "text-neutral-500 hover:text-neutral-300"}`}
+          >
+            すべて
+          </button>
+          <button
+            onClick={() => setFilterMode("bubble")}
+            className={`px-6 py-2 rounded-full text-sm transition-colors ${filterMode === "bubble" ? "bg-neutral-800 text-neutral-200" : "text-neutral-500 hover:text-neutral-300"}`}
+          >
+            短文
+          </button>
+          <button
+            onClick={() => setFilterMode("will")}
+            className={`px-6 py-2 rounded-full text-sm transition-colors ${filterMode === "will" ? "bg-neutral-800 text-neutral-200" : "text-neutral-500 hover:text-neutral-300"}`}
+          >
+            長文
+          </button>
+        </div>
 
         {error && (
           <div className="bg-red-950/30 border border-red-900/50 text-red-400 p-4 rounded-lg mb-6 font-sans">
@@ -97,14 +130,14 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800">
-                  {echoes.length === 0 ? (
+                  {filteredEchoes.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">
                         投稿がありません
                       </td>
                     </tr>
                   ) : (
-                    echoes.map((echo) => (
+                    filteredEchoes.map((echo) => (
                       <tr key={echo.id} className="hover:bg-neutral-800/30 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-neutral-400 text-xs">
                           {new Date(echo.created_at).toLocaleString('ja-JP')}
@@ -115,9 +148,21 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-neutral-300">
-                          <div className="line-clamp-2 max-w-xl font-serif">
+                          <div className={`max-w-xl font-serif whitespace-pre-wrap ${!expandedIds.has(echo.id) && echo.mode === 'will' ? 'line-clamp-2' : ''}`}>
                             {echo.content}
                           </div>
+                          {echo.mode === 'will' && (
+                            <button
+                              onClick={() => toggleExpand(echo.id)}
+                              className="mt-2 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans"
+                            >
+                              {expandedIds.has(echo.id) ? (
+                                <><ChevronUp className="w-3 h-3" />折りたたむ</>
+                              ) : (
+                                <><ChevronDown className="w-3 h-3" />すべて表示</>
+                              )}
+                            </button>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
                           {echo.view_count} / {echo.max_views}
