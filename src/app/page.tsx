@@ -209,7 +209,6 @@ export default function Home() {
     } else if (mode === "will") {
       setFormMode("will");
     }
-    // "all" の場合は前回の formMode を保持
     setShowForm(true);
   };
 
@@ -377,6 +376,13 @@ export default function Home() {
             <div className="text-sm text-center tracking-wide font-sans max-w-md bg-red-950/20 border border-red-900/30 p-4 rounded-xl text-red-400/80">{errorMsg}</div>
           ) : currentEcho ? (
             <div className="w-full flex flex-col items-center text-center">
+              {/* モードタグ（泡沫/遺言） */}
+              <div className="mb-4">
+                <span className={`px-3 py-1 rounded-full text-xs font-sans border ${currentEcho.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
+                  {currentEcho.mode === "bubble" ? "泡沫" : "遺言"}
+                </span>
+              </div>
+
               <p className={`text-neutral-200 leading-relaxed font-light ${currentEcho.mode === "bubble" ? "text-2xl md:text-3xl tracking-wide font-normal max-w-xl" : "text-lg md:text-xl text-left tracking-normal max-w-2xl whitespace-pre-wrap font-light"}`}>
                 {currentEcho.content}
               </p>
@@ -506,6 +512,11 @@ export default function Home() {
                   return (
                     <div key={echo.id} className="bg-neutral-950/50 border border-neutral-800/50 rounded-xl overflow-hidden">
                       <div className="p-4">
+                        <div className="mb-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-sans border ${echo.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
+                            {echo.mode === "bubble" ? "泡沫" : "遺言"}
+                          </span>
+                        </div>
                         {isLong ? (
                           <>
                             <p className={`text-sm text-neutral-300 italic font-light leading-relaxed whitespace-pre-wrap ${!isExpanded ? "line-clamp-3" : ""}`}>
