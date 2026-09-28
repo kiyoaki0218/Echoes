@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 
 type Mode = "bubble" | "will";
+type DisplayMode = "all" | "bubble" | "will";
 
 interface Echo {
   id: string;
@@ -25,7 +26,7 @@ interface MyEchoStatus {
   is_deleted: boolean;
 }
 
-// LocalStorageから共鳴済みIDセットを取得
+// LocalStorageから共鳴済みIDセット取得
 function getResonatedIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
@@ -39,7 +40,7 @@ function saveResonatedIds(ids: Set<string>) {
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>("bubble");
+  const [mode, setMode] = useState<DisplayMode>("all");
   const [currentEcho, setCurrentEcho] = useState<Echo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [resonateLoading, setResonateLoading] = useState<boolean>(false);
@@ -59,7 +60,7 @@ export default function Home() {
 
   const maxChars = formMode === "bubble" ? 60 : 800;
 
-  // 指定した投稿をメイン画面に表示して「自分の残響」モーダルを閉じる
+  // 指定投稿メイン画面表示
   const viewEchoOnMain = async (echo: MyEchoStatus) => {
     if (echo.is_deleted) return;
     setShowMyList(false);
@@ -75,11 +76,10 @@ export default function Home() {
           .eq("id", echo.id)
           .single();
         if (error || !data) {
-          // 削除済みなら通常のランダム表示
-          fetchRandomEcho(echo.mode as Mode);
+          fetchRandomEcho(mode);
           return;
         }
-        setMode(data.mode as Mode);
+        setMode(data.mode as DisplayMode);
         setCurrentEcho(data as Echo);
         await handleIncrementView(data.id);
       } catch {
@@ -91,15 +91,31 @@ export default function Home() {
     }, 300);
   };
 
-  const fetchRandomEcho = async (selectedMode: Mode) => {
+  const fetchRandomEcho = async (selectedMode: DisplayMode) => {
     setFade(false);
     setErrorMsg(null);
     setTimeout(async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase.rpc("get_random_echo", {
-          post_mode: selectedMode,
+        let targetMode: Mode;
+        if (selectedMode === "all") {
+          targetMode = Math.random() < 0.5 ? "bubble" : "will";
+        } else {
+          targetMode = selectedMode;
+        }
+
+        let { data, error } = await supabase.rpc("get_random_echo", {
+          post_mode: targetMode,
         });
+
+        // 選択されたモードで取得できなかった場合のフォールバック（"all"の場合）
+        if (!error && (!data || data.length === 0) && selectedMode === "all") {
+          const fallbackMode = targetMode === "bubble" ? "will" : "bubble";
+          const res = await supabase.rpc("get_random_echo", { post_mode: fallbackMode });
+          data = res.data;
+          error = res.error;
+        }
+
         if (error) throw error;
         if (data && data.length > 0) {
           const echo = data[0] as Echo;
@@ -110,7 +126,7 @@ export default function Home() {
         }
       } catch (err: unknown) {
         console.error("Error fetching random echo:", err);
-        setErrorMsg("データの取得に失敗しました。Supabaseの接続設定（URLやKey）を確認してください。");
+        setErrorMsg("データの取得に失敗しました。Supabaseの接続設定（URL・Key）を確認してください。");
       } finally {
         setLoading(false);
         setFade(true);
@@ -142,7 +158,6 @@ export default function Home() {
       setResonateLoading(true);
 
       if (alreadyResonated) {
-        // 取り消し：resonance_count -1, max_views -10
         const { error } = await supabase
           .from("echoes")
           .update({
@@ -164,7 +179,6 @@ export default function Home() {
         } : prev);
 
       } else {
-        // 共鳴
         const { data, error } = await supabase.rpc("resonate_post", { post_id: currentEcho.id });
         if (error) throw error;
         if (data && data.status === "success") {
@@ -182,10 +196,21 @@ export default function Home() {
       }
     } catch (err: unknown) {
       console.error("Error resonating:", err);
-      alert("処理に失敗しました。");
+      alert("共鳴処理に失敗しました。");
     } finally {
       setResonateLoading(false);
     }
+  };
+
+  const openForm = () => {
+    setInputContent("");
+    if (mode === "bubble") {
+      setFormMode("bubble");
+    } else if (mode === "will") {
+      setFormMode("will");
+    }
+    // "all" の場合は前回の formMode を保持
+    setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,50 +224,64 @@ export default function Home() {
           content: inputContent.trim(),
           mode: formMode,
           max_views: formMode === "bubble" ? 100 : 500,
-          view_count: 0,
-          resonance_count: 0
         }])
         .select();
+
       if (error) throw error;
+
       if (data && data.length > 0) {
         const newEcho = data[0];
-        const saved = localStorage.getItem("my_echoes");
-        const list = saved ? JSON.parse(saved) : [];
-        list.push({
-          id: newEcho.id,
-          content: newEcho.content.substring(0, 30) + (newEcho.content.length > 30 ? "..." : ""),
-          mode: newEcho.mode,
-        });
-        localStorage.setItem("my_echoes", JSON.stringify(list));
-        setInputContent("");
-        setShowForm(false);
-        fetchMyEchoesStatus();
-        setMode(formMode);
-        fetchRandomEcho(formMode);
+        saveMyEcho(newEcho.id, newEcho.content, formMode);
       }
+
+      setShowForm(false);
+      setInputContent("");
+      fetchRandomEcho(mode);
     } catch (err: unknown) {
-      console.error("Error posting echo:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      alert("投稿に失敗しました。Supabaseの接続やテーブル・ポリシーの設定を確認してください。\nエラー: " + msg);
+      console.error("Error submitting echo:", err);
+      alert("投稿に失敗しました。");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const saveMyEcho = (id: string, content: string, itemMode: Mode) => {
+    try {
+      const saved = localStorage.getItem("my_echoes");
+      const list = saved ? JSON.parse(saved) : [];
+      list.push({ id, content, mode: itemMode });
+      localStorage.setItem("my_echoes", JSON.stringify(list));
+      fetchMyEchoesStatus();
+    } catch (err) {
+      console.error("Error saving my echo:", err);
     }
   };
 
   const fetchMyEchoesStatus = async () => {
     try {
       const saved = localStorage.getItem("my_echoes");
-      if (!saved) return;
+      if (!saved) {
+        setMyEchoes([]);
+        return;
+      }
       const list = JSON.parse(saved) as { id: string; content: string; mode?: Mode }[];
-      if (list.length === 0) return;
+      if (list.length === 0) {
+        setMyEchoes([]);
+        return;
+      }
+
       const ids = list.map(item => item.id);
       const { data, error } = await supabase
         .from("echoes")
-        .select("id, content, mode, resonance_count, view_count, max_views")
+        .select("id, content, mode, view_count, max_views, resonance_count")
         .in("id", ids);
+
       if (error) throw error;
+
+      const dbMap = new Map((data || []).map(d => [d.id, d]));
+
       const statuses: MyEchoStatus[] = list.map(item => {
-        const dbItem = data?.find(d => d.id === item.id);
+        const dbItem = dbMap.get(item.id);
         if (dbItem) {
           return {
             id: item.id,
@@ -270,7 +309,7 @@ export default function Home() {
   };
 
   const handleDeleteMyEcho = async (id: string, isDeletedFromDb: boolean) => {
-    if (!confirm("この投稿をデータベースおよび履歴から完全に消去しますか？")) return;
+    if (!confirm("この投稿をデータベースから完全に消去しますか？")) return;
     if (!isDeletedFromDb) {
       try {
         const { error } = await supabase.from("echoes").delete().eq("id", id);
@@ -294,7 +333,7 @@ export default function Home() {
     fetchMyEchoesStatus();
   }, []);
 
-  const handleModeChange = (newMode: Mode) => {
+  const handleModeChange = (newMode: DisplayMode) => {
     setMode(newMode);
     fetchRandomEcho(newMode);
   };
@@ -323,6 +362,7 @@ export default function Home() {
       <header className="w-full max-w-4xl mx-auto px-6 py-8 flex justify-between items-center z-10" onClick={(e) => e.stopPropagation()}>
         <h1 className="text-xl tracking-[0.2em] font-light text-neutral-300">残響 <span className="text-xs text-neutral-500 font-sans tracking-normal ml-1">Echoes</span></h1>
         <div className="flex bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full p-1 text-sm font-sans">
+          <button onClick={() => handleModeChange("all")} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${mode === "all" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>すべて</button>
           <button onClick={() => handleModeChange("bubble")} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${mode === "bubble" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>短文</button>
           <button onClick={() => handleModeChange("will")} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${mode === "will" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>長文</button>
         </div>
@@ -346,8 +386,8 @@ export default function Home() {
                   <div className="h-full bg-neutral-400 transition-all duration-500 ease-out" style={{ width: `${Math.min(100, (currentEcho.view_count / currentEcho.max_views) * 100)}%` }}></div>
                 </div>
                 <div className="flex justify-between text-[11px] text-neutral-500 font-sans tracking-wider">
-                  <span>表示回数: {currentEcho.view_count} / {currentEcho.max_views}</span>
-                  <span>（上限に達すると自動消滅します）</span>
+                  <span>表示: {currentEcho.view_count} / {currentEcho.max_views}</span>
+                  <span>（上限に達すると消滅します）</span>
                 </div>
               </div>
 
@@ -362,7 +402,7 @@ export default function Home() {
                   }`}
                 >
                   <Heart className={`w-3.5 h-3.5 transition-transform group-hover:scale-125 ${isResonated ? "fill-red-500 text-red-500" : ""}`} />
-                  <span>{isResonated ? `共鳴済み (${currentEcho.resonance_count}) — 取り消す` : `共鳴する (${currentEcho.resonance_count})`}</span>
+                  <span>{isResonated ? `共鳴済み (${currentEcho.resonance_count})` : `共鳴する (${currentEcho.resonance_count})`}</span>
                 </button>
               </div>
             </div>
@@ -387,7 +427,7 @@ export default function Home() {
           自分の残響
         </button>
         <button
-          onClick={() => { setInputContent(""); setShowForm(true); }}
+          onClick={openForm}
           className="flex items-center gap-2 px-4 py-2 bg-neutral-100 text-neutral-950 rounded-full text-xs font-sans font-medium hover:bg-neutral-200 transition-all active:scale-95 shadow-md"
         >
           <PenTool className="w-3.5 h-3.5" />
@@ -398,16 +438,16 @@ export default function Home() {
       {/* 投稿フォーム */}
       {showForm && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="w-full max-w-lg bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 md:p-8 flex flex-col relative">
+          <div className="w-full max-w-lg bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 md:p-8 flex flex-col min-h-[360px] relative">
             <button onClick={() => setShowForm(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300 transition-colors p-1"><X className="w-5 h-5" /></button>
-            <h2 className="text-lg tracking-widest text-neutral-300 font-light mb-6">新規投稿</h2>
+            <h2 className="text-lg tracking-widest text-neutral-300 font-light mb-6">思考を残す</h2>
             <div className="flex border-b border-neutral-800 mb-6 font-sans">
               <button type="button" onClick={() => setFormMode("bubble")} className={`flex-1 pb-3 text-sm transition-all relative ${formMode === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500"}`}>
-                短文 <span className="text-[10px] opacity-70">(最大60字 / 初期寿命100表示)</span>
+                短文 <span className="text-[10px] opacity-70">(最大60文字 / 100回表示)</span>
                 {formMode === "bubble" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
               </button>
               <button type="button" onClick={() => setFormMode("will")} className={`flex-1 pb-3 text-sm transition-all relative ${formMode === "will" ? "text-neutral-100 font-medium" : "text-neutral-500"}`}>
-                長文 <span className="text-[10px] opacity-70">(最大800字 / 初期寿命500表示)</span>
+                長文 <span className="text-[10px] opacity-70">(最大800文字 / 500回表示)</span>
                 {formMode === "will" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
               </button>
             </div>
@@ -416,14 +456,14 @@ export default function Home() {
                 value={inputContent}
                 onChange={(e) => setInputContent(e.target.value)}
                 maxLength={maxChars}
-                placeholder={formMode === "bubble" ? "短い想いを入力してください..." : "心に残る長文を入力してください..."}
+                placeholder={formMode === "bubble" ? "思考を入力..." : "心に残る長文を入力..."}
                 required
                 className="w-full flex-1 min-h-[140px] bg-transparent text-neutral-200 border-0 outline-none resize-none placeholder-neutral-600 text-base font-light leading-relaxed mb-4 focus:ring-0 focus:ring-offset-0"
               />
               <div className="flex justify-between items-center mt-auto pt-4 border-t border-neutral-800">
                 <span className="text-xs text-neutral-500 font-sans">{inputContent.length} / {maxChars} 文字</span>
                 <button type="submit" disabled={submitting || !inputContent.trim()} className="px-6 py-2 bg-neutral-100 text-neutral-950 hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 rounded-full text-xs font-sans font-medium transition-colors">
-                  {submitting ? "送信中..." : "投稿する"}
+                  {submitting ? "送信中..." : "残す"}
                 </button>
               </div>
             </form>
@@ -458,14 +498,13 @@ export default function Home() {
 
             <div className="flex-1 overflow-y-auto pr-1 space-y-3">
               {(myListTab === "bubble" ? myBubbles : myWills).length === 0 ? (
-                <p className="text-neutral-500 text-sm tracking-wider text-center py-12 font-sans">まだ投稿していません。</p>
+                <p className="text-neutral-500 text-sm tracking-wider text-center py-12 font-sans">まだ投稿がありません。</p>
               ) : (
                 (myListTab === "bubble" ? myBubbles : myWills).map((echo) => {
                   const isExpanded = expandedIds.has(echo.id);
                   const isLong = echo.mode === "will";
                   return (
                     <div key={echo.id} className="bg-neutral-950/50 border border-neutral-800/50 rounded-xl overflow-hidden">
-                      {/* 本文エリア */}
                       <div className="p-4">
                         {isLong ? (
                           <>
@@ -484,10 +523,9 @@ export default function Home() {
                         )}
                       </div>
 
-                      {/* フッターエリア */}
                       <div className="px-4 pb-3 flex items-center justify-between gap-2 border-t border-neutral-900/50 pt-2.5">
                         {echo.is_deleted ? (
-                          <span className="text-[10px] text-neutral-600 font-sans">消滅しました</span>
+                          <span className="text-[10px] text-neutral-600 font-sans">消滅済み</span>
                         ) : (
                           <span className="text-[10px] text-neutral-500 font-sans flex items-center gap-2">
                             <span>残り: <strong className="text-neutral-300">{echo.remaining_views}</strong> 回</span>
@@ -499,7 +537,7 @@ export default function Home() {
                             <button
                               onClick={() => viewEchoOnMain(echo)}
                               className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-sans text-neutral-400 hover:text-neutral-100 bg-neutral-800/60 hover:bg-neutral-700/60 border border-neutral-700/50 rounded-full transition-all"
-                              title="この投稿を表示"
+                              title="この内容を表示"
                             >
                               <ExternalLink className="w-3 h-3" />
                               表示
@@ -508,7 +546,7 @@ export default function Home() {
                           <button
                             onClick={() => handleDeleteMyEcho(echo.id, echo.is_deleted)}
                             className="text-neutral-600 hover:text-red-400 transition-colors p-1"
-                            title="消去"
+                            title="削除"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
