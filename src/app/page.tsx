@@ -352,56 +352,59 @@ export default function Home() {
 
   return (
     <div
-      className="flex flex-col min-h-screen bg-neutral-950 text-neutral-100 font-serif select-none justify-between overflow-hidden relative"
+      className="flex flex-col h-dvh max-h-dvh bg-neutral-950 text-neutral-100 font-serif select-none justify-between overflow-hidden relative"
       onClick={() => fetchRandomEcho(mode)}
     >
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-neutral-900 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 sm:w-96 sm:h-96 bg-neutral-900 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
 
       {/* ヘッダー */}
-      <header className="w-full max-w-4xl mx-auto px-6 py-8 flex justify-between items-center z-10" onClick={(e) => e.stopPropagation()}>
-        <h1 className="text-xl tracking-[0.2em] font-light text-neutral-300">残響 <span className="text-xs text-neutral-500 font-sans tracking-normal ml-1">Echoes</span></h1>
-        <div className="flex bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full p-1 text-sm font-sans">
-          <button onClick={() => handleModeChange("all")} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${mode === "all" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>すべて</button>
-          <button onClick={() => handleModeChange("bubble")} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${mode === "bubble" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>短文</button>
-          <button onClick={() => handleModeChange("will")} className={`px-4 py-1.5 rounded-full transition-all duration-300 ${mode === "will" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>長文</button>
+      <header className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8 flex justify-between items-center z-10 shrink-0" onClick={(e) => e.stopPropagation()}>
+        <h1 className="text-lg sm:text-xl tracking-[0.2em] font-light text-neutral-300">残響 <span className="text-[10px] sm:text-xs text-neutral-500 font-sans tracking-normal ml-1">Echoes</span></h1>
+        <div className="flex bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full p-0.5 sm:p-1 text-xs sm:text-sm font-sans">
+          <button onClick={() => handleModeChange("all")} className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full transition-all duration-300 ${mode === "all" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>すべて</button>
+          <button onClick={() => handleModeChange("bubble")} className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full transition-all duration-300 ${mode === "bubble" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>短文</button>
+          <button onClick={() => handleModeChange("will")} className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full transition-all duration-300 ${mode === "will" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>長文</button>
         </div>
       </header>
 
       {/* メイン */}
-      <main className="flex-1 flex flex-col justify-center items-center px-6 max-w-3xl mx-auto w-full z-10 cursor-pointer">
+      <main className="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 max-w-3xl mx-auto w-full z-10 cursor-pointer overflow-hidden py-2">
         <div className={`w-full transition-opacity duration-300 flex flex-col items-center ${fade ? "opacity-100" : "opacity-0"}`}>
           {loading ? (
-            <div className="text-neutral-500 text-sm tracking-widest animate-pulse font-sans">投稿を取得しています...</div>
+            <div className="text-neutral-500 text-xs sm:text-sm tracking-widest animate-pulse font-sans">投稿を取得しています...</div>
           ) : errorMsg ? (
-            <div className="text-sm text-center tracking-wide font-sans max-w-md bg-red-950/20 border border-red-900/30 p-4 rounded-xl text-red-400/80">{errorMsg}</div>
+            <div className="text-xs sm:text-sm text-center tracking-wide font-sans max-w-md bg-red-950/20 border border-red-900/30 p-4 rounded-xl text-red-400/80">{errorMsg}</div>
           ) : currentEcho ? (
-            <div className="w-full flex flex-col items-center text-center">
+            <div className="w-full flex flex-col items-center text-center max-h-[70dvh] justify-center">
               {/* モードタグ（泡沫/遺言） */}
-              <div className="mb-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-sans border ${currentEcho.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
+              <div className="mb-3 sm:mb-4 shrink-0">
+                <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-sans border ${currentEcho.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
                   {currentEcho.mode === "bubble" ? "泡沫" : "遺言"}
                 </span>
               </div>
 
-              <p className={`text-neutral-200 leading-relaxed font-light ${currentEcho.mode === "bubble" ? "text-2xl md:text-3xl tracking-wide font-normal max-w-xl" : "text-lg md:text-xl text-left tracking-normal max-w-2xl whitespace-pre-wrap font-light"}`}>
-                {currentEcho.content}
-              </p>
+              {/* コンテンツ本文（長文の場合はスマホでスクロール可能に） */}
+              <div className="w-full overflow-y-auto max-h-[35dvh] sm:max-h-[45dvh] px-2 py-1 scrollbar-thin">
+                <p className={`text-neutral-200 leading-relaxed font-light ${currentEcho.mode === "bubble" ? "text-xl sm:text-2xl md:text-3xl tracking-wide font-normal max-w-xl mx-auto" : "text-base sm:text-lg md:text-xl text-left tracking-normal max-w-2xl whitespace-pre-wrap font-light mx-auto"}`}>
+                  {currentEcho.content}
+                </p>
+              </div>
 
-              <div className="w-full max-w-md mt-16 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full max-w-md mt-6 sm:mt-10 md:mt-14 flex flex-col gap-1.5 sm:gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <div className="w-full h-[2px] bg-neutral-900 rounded-full overflow-hidden">
                   <div className="h-full bg-neutral-400 transition-all duration-500 ease-out" style={{ width: `${Math.min(100, (currentEcho.view_count / currentEcho.max_views) * 100)}%` }}></div>
                 </div>
-                <div className="flex justify-between text-[11px] text-neutral-500 font-sans tracking-wider">
+                <div className="flex justify-between text-[10px] sm:text-[11px] text-neutral-500 font-sans tracking-wider">
                   <span>表示: {currentEcho.view_count} / {currentEcho.max_views}</span>
-                  <span>（上限に達すると消滅します）</span>
+                  <span>（上限で消滅）</span>
                 </div>
               </div>
 
-              <div className="mt-8" onClick={(e) => e.stopPropagation()}>
+              <div className="mt-4 sm:mt-6 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={handleResonate}
                   disabled={resonateLoading}
-                  className={`group flex items-center gap-2 px-5 py-2.5 border rounded-full text-xs font-sans tracking-widest transition-all duration-300 active:scale-95 ${
+                  className={`group flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 border rounded-full text-[11px] sm:text-xs font-sans tracking-widest transition-all duration-300 active:scale-95 ${
                     isResonated
                       ? "bg-red-950/30 border-red-800/60 text-red-400 hover:bg-red-950/50"
                       : "bg-neutral-900/60 hover:bg-neutral-800/80 border-neutral-800/80 text-neutral-400 hover:text-neutral-200"
@@ -413,19 +416,19 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <div className="text-center py-12">
-              <p className="text-neutral-500 text-sm tracking-widest font-sans">表示できる投稿がありません。</p>
-              <p className="text-neutral-600 text-xs mt-2 tracking-wider font-sans">画面をタップして再読み込みするか、新しく投稿してください。</p>
+            <div className="text-center py-8">
+              <p className="text-neutral-500 text-xs sm:text-sm tracking-widest font-sans">表示できる投稿がありません。</p>
+              <p className="text-neutral-600 text-[11px] sm:text-xs mt-2 tracking-wider font-sans">画面をタップして再読み込みするか、新しく投稿してください。</p>
             </div>
           )}
         </div>
         {currentEcho && !loading && !errorMsg && (
-          <div className="mt-16 text-[10px] text-neutral-600 font-sans tracking-widest animate-pulse pointer-events-none">画面をタップして次の投稿へ</div>
+          <div className="mt-4 sm:mt-8 text-[10px] text-neutral-600 font-sans tracking-widest animate-pulse pointer-events-none shrink-0">画面をタップして次の投稿へ</div>
         )}
       </main>
 
       {/* フッター */}
-      <footer className="w-full max-w-4xl mx-auto px-6 py-8 flex justify-between items-center z-20" onClick={(e) => e.stopPropagation()}>
+      <footer className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8 flex justify-between items-center z-20 shrink-0" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={() => { setShowMyList(true); fetchMyEchoesStatus(); }}
           className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors font-sans tracking-wider border-b border-transparent hover:border-neutral-700 pb-0.5"
@@ -443,32 +446,32 @@ export default function Home() {
 
       {/* 投稿フォーム */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="w-full max-w-lg bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 md:p-8 flex flex-col min-h-[360px] relative">
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col min-h-[340px] max-h-[90dvh] relative">
             <button onClick={() => setShowForm(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300 transition-colors p-1"><X className="w-5 h-5" /></button>
-            <h2 className="text-lg tracking-widest text-neutral-300 font-light mb-6">思考を残す</h2>
-            <div className="flex border-b border-neutral-800 mb-6 font-sans">
-              <button type="button" onClick={() => setFormMode("bubble")} className={`flex-1 pb-3 text-sm transition-all relative ${formMode === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500"}`}>
-                短文 <span className="text-[10px] opacity-70">(最大60文字 / 100回表示)</span>
+            <h2 className="text-base sm:text-lg tracking-widest text-neutral-300 font-light mb-4 sm:mb-6">思考を残す</h2>
+            <div className="flex border-b border-neutral-800 mb-4 sm:mb-6 font-sans">
+              <button type="button" onClick={() => setFormMode("bubble")} className={`flex-1 pb-2.5 sm:pb-3 text-xs sm:text-sm transition-all relative ${formMode === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500"}`}>
+                短文 <span className="text-[9px] sm:text-[10px] opacity-70">(最大60文字)</span>
                 {formMode === "bubble" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
               </button>
-              <button type="button" onClick={() => setFormMode("will")} className={`flex-1 pb-3 text-sm transition-all relative ${formMode === "will" ? "text-neutral-100 font-medium" : "text-neutral-500"}`}>
-                長文 <span className="text-[10px] opacity-70">(最大800文字 / 500回表示)</span>
+              <button type="button" onClick={() => setFormMode("will")} className={`flex-1 pb-2.5 sm:pb-3 text-xs sm:text-sm transition-all relative ${formMode === "will" ? "text-neutral-100 font-medium" : "text-neutral-500"}`}>
+                長文 <span className="text-[9px] sm:text-[10px] opacity-70">(最大800文字)</span>
                 {formMode === "will" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
               <textarea
                 value={inputContent}
                 onChange={(e) => setInputContent(e.target.value)}
                 maxLength={maxChars}
                 placeholder={formMode === "bubble" ? "思考を入力..." : "心に残る長文を入力..."}
                 required
-                className="w-full flex-1 min-h-[140px] bg-transparent text-neutral-200 border-0 outline-none resize-none placeholder-neutral-600 text-base font-light leading-relaxed mb-4 focus:ring-0 focus:ring-offset-0"
+                className="w-full flex-1 min-h-[120px] bg-transparent text-neutral-200 border-0 outline-none resize-none placeholder-neutral-600 text-sm sm:text-base font-light leading-relaxed mb-4 focus:ring-0 focus:ring-offset-0"
               />
-              <div className="flex justify-between items-center mt-auto pt-4 border-t border-neutral-800">
+              <div className="flex justify-between items-center mt-auto pt-4 border-t border-neutral-800 shrink-0">
                 <span className="text-xs text-neutral-500 font-sans">{inputContent.length} / {maxChars} 文字</span>
-                <button type="submit" disabled={submitting || !inputContent.trim()} className="px-6 py-2 bg-neutral-100 text-neutral-950 hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 rounded-full text-xs font-sans font-medium transition-colors">
+                <button type="submit" disabled={submitting || !inputContent.trim()} className="px-5 sm:px-6 py-2 bg-neutral-100 text-neutral-950 hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-600 rounded-full text-xs font-sans font-medium transition-colors">
                   {submitting ? "送信中..." : "残す"}
                 </button>
               </div>
@@ -479,23 +482,23 @@ export default function Home() {
 
       {/* 自分の残響モーダル */}
       {showMyList && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="w-full max-w-lg bg-neutral-900/80 border border-neutral-800 rounded-2xl p-6 md:p-8 flex flex-col max-h-[85vh] relative">
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col max-h-[85dvh] relative">
             <button onClick={() => setShowMyList(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300 transition-colors p-1"><X className="w-5 h-5" /></button>
-            <h2 className="text-lg tracking-widest text-neutral-300 font-light mb-4">自分の残響</h2>
+            <h2 className="text-base sm:text-lg tracking-widest text-neutral-300 font-light mb-4">自分の残響</h2>
 
             {/* タブ */}
             <div className="flex border-b border-neutral-800 mb-4 font-sans">
               <button
                 onClick={() => setMyListTab("bubble")}
-                className={`flex-1 pb-2.5 text-sm transition-all relative ${myListTab === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500 hover:text-neutral-300"}`}
+                className={`flex-1 pb-2.5 text-xs sm:text-sm transition-all relative ${myListTab === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 短文 <span className="text-[10px] opacity-60">({myBubbles.length})</span>
                 {myListTab === "bubble" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
               </button>
               <button
                 onClick={() => setMyListTab("will")}
-                className={`flex-1 pb-2.5 text-sm transition-all relative ${myListTab === "will" ? "text-neutral-100 font-medium" : "text-neutral-500 hover:text-neutral-300"}`}
+                className={`flex-1 pb-2.5 text-xs sm:text-sm transition-all relative ${myListTab === "will" ? "text-neutral-100 font-medium" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 長文 <span className="text-[10px] opacity-60">({myWills.length})</span>
                 {myListTab === "will" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
@@ -504,14 +507,14 @@ export default function Home() {
 
             <div className="flex-1 overflow-y-auto pr-1 space-y-3">
               {(myListTab === "bubble" ? myBubbles : myWills).length === 0 ? (
-                <p className="text-neutral-500 text-sm tracking-wider text-center py-12 font-sans">まだ投稿がありません。</p>
+                <p className="text-neutral-500 text-xs sm:text-sm tracking-wider text-center py-12 font-sans">まだ投稿がありません。</p>
               ) : (
                 (myListTab === "bubble" ? myBubbles : myWills).map((echo) => {
                   const isExpanded = expandedIds.has(echo.id);
                   const isLong = echo.mode === "will";
                   return (
                     <div key={echo.id} className="bg-neutral-950/50 border border-neutral-800/50 rounded-xl overflow-hidden">
-                      <div className="p-4">
+                      <div className="p-3 sm:p-4">
                         <div className="mb-2">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-sans border ${echo.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
                             {echo.mode === "bubble" ? "泡沫" : "遺言"}
@@ -519,7 +522,7 @@ export default function Home() {
                         </div>
                         {isLong ? (
                           <>
-                            <p className={`text-sm text-neutral-300 italic font-light leading-relaxed whitespace-pre-wrap ${!isExpanded ? "line-clamp-3" : ""}`}>
+                            <p className={`text-xs sm:text-sm text-neutral-300 italic font-light leading-relaxed whitespace-pre-wrap ${!isExpanded ? "line-clamp-3" : ""}`}>
                               {echo.content}
                             </p>
                             <button
@@ -530,15 +533,15 @@ export default function Home() {
                             </button>
                           </>
                         ) : (
-                          <p className="text-sm text-neutral-300 italic font-light">&ldquo;{echo.content}&rdquo;</p>
+                          <p className="text-xs sm:text-sm text-neutral-300 italic font-light">&ldquo;{echo.content}&rdquo;</p>
                         )}
                       </div>
 
-                      <div className="px-4 pb-3 flex items-center justify-between gap-2 border-t border-neutral-900/50 pt-2.5">
+                      <div className="px-3 sm:px-4 pb-2.5 sm:pb-3 flex items-center justify-between gap-2 border-t border-neutral-900/50 pt-2 font-sans">
                         {echo.is_deleted ? (
-                          <span className="text-[10px] text-neutral-600 font-sans">消滅済み</span>
+                          <span className="text-[10px] text-neutral-600">消滅済み</span>
                         ) : (
-                          <span className="text-[10px] text-neutral-500 font-sans flex items-center gap-2">
+                          <span className="text-[10px] text-neutral-500 flex items-center gap-2">
                             <span>残り: <strong className="text-neutral-300">{echo.remaining_views}</strong> 回</span>
                             <span className="flex items-center gap-0.5"><Heart className="w-2.5 h-2.5 text-red-500/70 fill-red-950/20" />{echo.resonance_count}</span>
                           </span>
@@ -547,7 +550,7 @@ export default function Home() {
                           {!echo.is_deleted && (
                             <button
                               onClick={() => viewEchoOnMain(echo)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-sans text-neutral-400 hover:text-neutral-100 bg-neutral-800/60 hover:bg-neutral-700/60 border border-neutral-700/50 rounded-full transition-all"
+                              className="flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] text-neutral-400 hover:text-neutral-100 bg-neutral-800/60 hover:bg-neutral-700/60 border border-neutral-700/50 rounded-full transition-all"
                               title="この内容を表示"
                             >
                               <ExternalLink className="w-3 h-3" />
