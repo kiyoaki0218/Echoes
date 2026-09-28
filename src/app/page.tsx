@@ -212,6 +212,16 @@ export default function Home() {
     setShowForm(true);
   };
 
+  const openMyList = () => {
+    if (mode === "bubble") {
+      setMyListTab("bubble");
+    } else if (mode === "will") {
+      setMyListTab("will");
+    }
+    setShowMyList(true);
+    fetchMyEchoesStatus();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputContent.trim() || submitting) return;
@@ -430,7 +440,7 @@ export default function Home() {
       {/* フッター */}
       <footer className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8 flex justify-between items-center z-20 shrink-0" onClick={(e) => e.stopPropagation()}>
         <button
-          onClick={() => { setShowMyList(true); fetchMyEchoesStatus(); }}
+          onClick={openMyList}
           className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors font-sans tracking-wider border-b border-transparent hover:border-neutral-700 pb-0.5"
         >
           自分の残響
