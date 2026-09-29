@@ -1,10 +1,11 @@
-"use server";
+﻿"use server";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || "secret";
+const PAGE_SIZE = 50;
 
 export async function loginAdmin(formData: FormData) {
   const passcode = formData.get("passcode");
@@ -29,24 +30,37 @@ export async function logoutAdmin() {
   redirect("/admin/login");
 }
 
-export async function getAdminEchoes() {
+export async function getAdminEchoes(
+  page: number = 1,
+  mode: "all" | "bubble" | "will" = "all"
+) {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_token");
   if (token?.value !== "authenticated") {
     throw new Error("Unauthorized");
   }
 
-  const { data, error } = await supabase
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  let query = supabase
     .from("echoes")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (mode !== "all") {
+    query = query.eq("mode", mode);
+  }
+
+  const { data, error, count } = await query;
 
   if (error) {
     console.error("Error fetching echoes:", error);
     throw new Error("データの取得に失敗しました");
   }
 
-  return data;
+  return { data: data ?? [], totalCount: count ?? 0 };
 }
 
 export async function deleteAdminEcho(id: string) {
