@@ -7,6 +7,21 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-09-23 (3回目)
+#### 3. ダッシュボードへのキーワード検索 ＆ 日時フィルター追加
+- **編集箇所**:
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+- **わかりやすい編集内容**:
+  - ダッシュボードのフィルターエリアに、投稿テキストのキーワード検索バーと投稿日の範囲指定（開始日〜終了日）を追加。
+  - 「検索」ボタンまたは Enter キー押下で絞り込みを実行。条件がある場合は「クリア」ボタンで一括リセット可能。
+  - 検索中は件数表示が「検索結果: N件」に切り替わり、ヒットなしの場合は「条件に一致する投稿がありません」を表示。
+- **具体的なプログラムの編集内容**:
+  - admin.ts: `getAdminEchoes()` に `keyword: string`・`dateFrom: string`・`dateTo: string` 引数を追加。keyword は Supabase の `.ilike("content", \`%${keyword.trim()}%\`)` で大文字小文字を区別しない部分一致検索を実装。dateFrom / dateTo は `YYYY-MM-DD` 形式を受け取り、`new Date(\`${date}T00:00:00+09:00\`)` で JST 基準の ISO 文字列に変換して `.gte()` / `.lte()` を適用。
+  - admin/page.tsx: `lucide-react` から `Search`・`X` を追加インポート。`keyword`・`dateFrom`・`dateTo`（入力中の値）と `appliedKeyword`・`appliedDateFrom`・`appliedDateTo`（確定済みの値）の計6つの state を追加。`isFiltered` フラグ（確定済み条件が1つでもある場合に true）を導出。`fetchEchoes` の引数を `(page, mode, kw, df, dt)` 形式に拡張し、`useEffect` の依存配列に applied 系 state を追加。`handleSearch`（確定処理）・`handleKeyDown`（Enter 対応）・`handleClearSearch`（全リセット）を追加。検索パネル UI（キーワード入力 + 検索/クリアボタン + 日付範囲ピッカー）をサマリーカード直下に配置。
+
+---
+
 ### 📅 2026-09-23 (2回目)
 #### 2. ダッシュボードへのサマリー（統計）カード追加
 - **編集箇所**:

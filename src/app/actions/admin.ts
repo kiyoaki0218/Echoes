@@ -32,7 +32,10 @@ export async function logoutAdmin() {
 
 export async function getAdminEchoes(
   page: number = 1,
-  mode: "all" | "bubble" | "will" = "all"
+  mode: "all" | "bubble" | "will" = "all",
+  keyword: string = "",
+  dateFrom: string = "",
+  dateTo: string = ""
 ) {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_token");
@@ -51,6 +54,22 @@ export async function getAdminEchoes(
 
   if (mode !== "all") {
     query = query.eq("mode", mode);
+  }
+
+  // キーワード検索（部分一致）
+  if (keyword.trim()) {
+    query = query.ilike("content", `%${keyword.trim()}%`);
+  }
+
+  // 日時フィルター（dateFrom / dateTo は "YYYY-MM-DD" 形式を想定）
+  // dateFrom は当日 00:00:00 JST = (dateFrom - 9h) UTC として扱う
+  if (dateFrom) {
+    const fromUtc = new Date(`${dateFrom}T00:00:00+09:00`).toISOString();
+    query = query.gte("created_at", fromUtc);
+  }
+  if (dateTo) {
+    const toUtc = new Date(`${dateTo}T23:59:59+09:00`).toISOString();
+    query = query.lte("created_at", toUtc);
   }
 
   const { data, error, count } = await query;

@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats } from "@/app/actions/admin";
-import { Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, BarChart2, Heart, Zap } from "lucide-react";
+import { Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, BarChart2, Heart, Zap, Search, X } from "lucide-react";
 
 type Echo = {
   id: string;
@@ -25,17 +25,34 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
+  // 検索・日時フィルター
+  const [keyword, setKeyword] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  // 実際に適用中のフィルター値（「検索」ボタン押下時に確定）
+  const [appliedKeyword, setAppliedKeyword] = useState("");
+  const [appliedDateFrom, setAppliedDateFrom] = useState("");
+  const [appliedDateTo, setAppliedDateTo] = useState("");
+
+  const isFiltered = appliedKeyword || appliedDateFrom || appliedDateTo;
+
   type Stats = { totalCount: number; todayCount: number; totalResonance: number; activeCount: number };
   const [stats, setStats] = useState<Stats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const fetchEchoes = useCallback(async (page: number, mode: "all" | "bubble" | "will") => {
+  const fetchEchoes = useCallback(async (
+    page: number,
+    mode: "all" | "bubble" | "will",
+    kw: string,
+    df: string,
+    dt: string
+  ) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await getAdminEchoes(page, mode);
+      const result = await getAdminEchoes(page, mode, kw, df, dt);
       setEchoes(result.data as Echo[]);
       setTotalCount(result.totalCount);
     } catch (err: any) {
@@ -58,8 +75,8 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchEchoes(currentPage, filterMode);
-  }, [currentPage, filterMode, fetchEchoes]);
+    fetchEchoes(currentPage, filterMode, appliedKeyword, appliedDateFrom, appliedDateTo);
+  }, [currentPage, filterMode, appliedKeyword, appliedDateFrom, appliedDateTo, fetchEchoes]);
 
   useEffect(() => {
     fetchStats();
@@ -67,6 +84,30 @@ export default function AdminDashboard() {
 
   const handleFilterChange = (mode: "all" | "bubble" | "will") => {
     setFilterMode(mode);
+    setCurrentPage(1);
+  };
+
+  // 検索を確定する
+  const handleSearch = () => {
+    setAppliedKeyword(keyword);
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
+    setCurrentPage(1);
+  };
+
+  // Enter キーでも検索
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  // 検索条件をすべてリセット
+  const handleClearSearch = () => {
+    setKeyword("");
+    setDateFrom("");
+    setDateTo("");
+    setAppliedKeyword("");
+    setAppliedDateFrom("");
+    setAppliedDateTo("");
     setCurrentPage(1);
   };
 
@@ -115,7 +156,7 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <button
-              onClick={() => { fetchEchoes(currentPage, filterMode); fetchStats(); }}
+              onClick={() => { fetchEchoes(currentPage, filterMode, appliedKeyword, appliedDateFrom, appliedDateTo); fetchStats(); }}
               className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg hover:bg-neutral-800 transition-colors text-sm font-sans text-neutral-300"
             >
               <RefreshCcw className="w-4 h-4" />
@@ -179,7 +220,59 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* フィルター */}
+        {/* 検索・日時フィルター */}
+        <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 mb-4 font-sans">
+          <div className="flex flex-col gap-3">
+            {/* キーワード検索 */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={keyword}
+                  onChange={e => setKeyword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="投稿テキストで検索..."
+                  className="w-full pl-9 pr-4 py-2 bg-neutral-800/60 border border-neutral-700 rounded-lg text-sm text-neutral-200 placeholder-neutral-500 outline-none focus:border-neutral-500 transition-colors"
+                />
+              </div>
+              <button
+                onClick={handleSearch}
+                className="px-4 py-2 bg-neutral-200 text-neutral-900 rounded-lg text-sm font-medium hover:bg-white transition-colors whitespace-nowrap"
+              >
+                検索
+              </button>
+              {isFiltered && (
+                <button
+                  onClick={handleClearSearch}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-neutral-200 rounded-lg text-sm transition-colors whitespace-nowrap"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  クリア
+                </button>
+              )}
+            </div>
+            {/* 日時フィルター */}
+            <div className="flex items-center gap-2 text-sm text-neutral-400">
+              <span className="whitespace-nowrap text-xs">投稿日:</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="px-3 py-1.5 bg-neutral-800/60 border border-neutral-700 rounded-lg text-sm text-neutral-200 outline-none focus:border-neutral-500 transition-colors [color-scheme:dark]"
+              />
+              <span className="text-neutral-600 text-xs">〜</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className="px-3 py-1.5 bg-neutral-800/60 border border-neutral-700 rounded-lg text-sm text-neutral-200 outline-none focus:border-neutral-500 transition-colors [color-scheme:dark]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* モードフィルター & 件数 */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex bg-neutral-900/50 p-1 rounded-full w-fit border border-neutral-800">
             <button
@@ -203,7 +296,8 @@ export default function AdminDashboard() {
           </div>
           {!loading && (
             <p className="text-xs text-neutral-500 font-sans">
-              全 <span className="text-neutral-300">{totalCount.toLocaleString()}</span> 件
+              {isFiltered && <span className="text-neutral-400 mr-1">検索結果:</span>}
+              <span className="text-neutral-300">{totalCount.toLocaleString()}</span> 件
               {totalPages > 1 && (
                 <> · {currentPage} / {totalPages} ページ</>
               )}
@@ -240,7 +334,7 @@ export default function AdminDashboard() {
                     {echoes.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">
-                          投稿がありません
+                          {isFiltered ? "条件に一致する投稿がありません" : "投稿がありません"}
                         </td>
                       </tr>
                     ) : (
