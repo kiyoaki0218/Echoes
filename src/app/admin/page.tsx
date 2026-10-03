@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats } from "@/app/actions/admin";
-import { Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, BarChart2, Heart, Zap, Search, X, Menu } from "lucide-react";
+import { Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, BarChart2, Heart, Zap, Search, X, Menu, ExternalLink } from "lucide-react";
 
 type Echo = {
   id: string;
@@ -321,8 +321,7 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4 font-medium w-full">内容</th>
                       <th className="px-6 py-4 font-medium whitespace-nowrap text-right">閲覧数</th>
                       <th className="px-6 py-4 font-medium whitespace-nowrap text-right">共鳴数</th>
-                      <th className="px-6 py-4 font-medium whitespace-nowrap text-center">操作</th>
-                    </tr>
+                      <th className="px-6 py-4 font-medium whitespace-nowrap text-center">操作</th>                    </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-800">
                     {echoes.map(echo => (
@@ -357,13 +356,24 @@ export default function AdminDashboard() {
                           {echo.resonance_count}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <button
-                            onClick={() => handleDelete(echo.id)}
-                            className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"
-                            title="削除"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <a
+                              href={`/?echo=${echo.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors"
+                              title="新しいタブで直表示"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={() => handleDelete(echo.id)}
+                              className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"
+                              title="削除"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -386,13 +396,24 @@ export default function AdminDashboard() {
                         {new Date(echo.created_at).toLocaleString("ja-JP")}
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleDelete(echo.id)}
-                      className="shrink-0 p-1.5 text-neutral-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"
-                      title="削除"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a
+                        href={`/?echo=${echo.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-neutral-600 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors"
+                        title="新しいタブで直表示"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                      <button
+                        onClick={() => handleDelete(echo.id)}
+                        className="p-1.5 text-neutral-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"
+                        title="削除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* 本文 */}

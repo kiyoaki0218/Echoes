@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search } from "lucide-react";
 
@@ -41,7 +42,9 @@ function saveResonatedIds(ids: Set<string>) {
   localStorage.setItem("resonated_echoes", JSON.stringify([...ids]));
 }
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const echoIdFromUrl = searchParams.get("echo");
   const [mode, setMode] = useState<DisplayMode>("all");
   const [currentEcho, setCurrentEcho] = useState<Echo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -355,8 +358,33 @@ export default function Home() {
 
   useEffect(() => {
     setResonatedIds(getResonatedIds());
-    fetchRandomEcho(mode);
     fetchMyEchoesStatus();
+    if (echoIdFromUrl) {
+      // URL に ?echo=<id> がある場合はその投稿を直接取得（閲覧カウントはインクリメントしない）
+      (async () => {
+        try {
+          setLoading(true);
+          const { data, error } = await supabase
+            .from("echoes")
+            .select("*")
+            .eq("id", echoIdFromUrl)
+            .single();
+          if (!error && data) {
+            setCurrentEcho(data as Echo);
+            setMode(data.mode as DisplayMode);
+          } else {
+            fetchRandomEcho(mode);
+          }
+        } catch {
+          fetchRandomEcho(mode);
+        } finally {
+          setLoading(false);
+          setFade(true);
+        }
+      })();
+    } else {
+      fetchRandomEcho(mode);
+    }
   }, []);
 
   const handleModeChange = (newMode: DisplayMode) => {
@@ -676,5 +704,13 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }

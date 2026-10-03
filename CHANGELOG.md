@@ -7,6 +7,21 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-09-23 (6回目)
+#### 5. 投稿の個別直リンク機能を追加
+- **編集箇所**:
+  - `src/app/page.tsx`
+  - `src/app/admin/page.tsx`
+- **わかりやすい編集内容**:
+  - ダッシュボードのテーブル各行（デスクトップ）・カード各件（モバイル）に「新しいタブで直表示」ボタン（`ExternalLink` アイコン）を追加。
+  - クリックすると `/?echo=<id>` をブラウザの新しいタブで開き、対象の投稿のみをメインページに直接表示できる。
+  - メインページは `?echo=<id>` クエリを受け取った場合、ランダム表示ではなく指定 ID の投稿を Supabase から直接取得して初期表示する（管理者プレビューのため閲覧カウントはインクリメントしない）。
+- **具体的なプログラムの編集内容**:
+  - page.tsx: `Suspense` を React からインポート追加。`useSearchParams` を `next/navigation` からインポート追加。`export default function Home()` を `function HomeContent()` にリネームし、冒頭で `useSearchParams()` を呼び出して `echoIdFromUrl` を取得。`useEffect` 初期化処理で `echoIdFromUrl` がある場合は Supabase から `.eq("id", echoIdFromUrl).single()` で取得し `setCurrentEcho` / `setMode` に設定（取得失敗時は通常のランダム表示にフォールバック）。ファイル末尾に `export default function Home()` を追加し `<Suspense fallback={null}><HomeContent /></Suspense>` を返す（`useSearchParams` の静的プリレンダリング要件を満たすため）。
+  - admin/page.tsx: `lucide-react` から `ExternalLink` を追加インポート。デスクトップテーブルの操作 `<td>` を `<div className="flex...gap-1">` で囲み、削除ボタンの前に `<a href={\`/?echo=${echo.id}\`} target="_blank" rel="noopener noreferrer">` の直リンクボタンを追加。モバイルカードのカードヘッダーも同様に削除ボタンを `<div className="flex...gap-1 shrink-0">` で囲み直リンクボタンを追加。
+
+---
+
 ### 📅 2026-09-23 (5回目)
 #### 4. ダッシュボードのスマホ対応（レスポンシブ化）
 - **編集箇所**: `src/app/admin/page.tsx`
