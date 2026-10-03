@@ -7,6 +7,21 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-09-23 (7回目)
+#### 6. ダッシュボードに昇順/降順ソート機能を追加
+- **編集箇所**:
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+- **わかりやすい編集内容**:
+  - デスクトップのテーブルヘッダー「投稿日時」「閲覧数」「残り回数」「共鳴数」をクリックで昇順/降順に切り替え可能にした。同じ列を再クリックで方向が反転し、別の列をクリックすると降順からリスタート。ソート中の列は ▲/▼ アイコンでハイライト表示。
+  - モバイルではカードリスト上部に「並び替え」セレクタ（列選択）＋「昇順/降順」トグルボタンを配置。
+  - テーブルに「残り回数」列を新規追加。10 以下になると赤でハイライト。モバイルカードにも同じく残り回数を表示。
+- **具体的なプログラムの編集内容**:
+  - admin.ts: `getAdminEchoes()` に `sortBy: "created_at" | "view_count" | "resonance_count" | "remaining_views"` と `sortDir: "asc" | "desc"` 引数を追加。`remaining_views` は DB の計算列ではないため `view_count` で代替ソートし方向を逆転させる処理を実装。`.order(dbSortColumn, { ascending: dbSortAsc })` で Supabase クエリに適用。
+  - admin/page.tsx: `SortBy` / `SortDir` 型を定義。`SORT_LABELS` 定数マップを追加。`sortBy`・`sortDir` state を追加。`fetchEchoes` の引数に `sb`・`sd` を追加し `useEffect` の依存配列にも含めた。ヘッダーの「更新」ボタンにも `sortBy`/`sortDir` を渡すよう修正。`handleSort()` 関数（同列クリックで方向反転・別列クリックで降順リセット）を追加。`SortIcon` コンポーネント（未選択: `ArrowUpDown` 薄表示 / 選択中昇順: `ArrowUp` / 選択中降順: `ArrowDown`）を追加。`SortTh` コンポーネント（クリック可能な `<th>` + アイコン）を追加し「投稿日時」「閲覧数」「残り」「共鳴数」ヘッダーに適用。テーブルに「残り」列を追加（`Math.max(0, max_views - view_count)` を表示、10 以下で `text-red-400`）。モバイル向けに `<select>` + 昇降トグルボタンのソートセレクターを `md:hidden` で追加。`lucide-react` から `ArrowUpDown`・`ArrowUp`・`ArrowDown` を追加インポート。
+
+---
+
 ### 📅 2026-09-23 (6回目)
 #### 5. 投稿の個別直リンク機能を追加
 - **編集箇所**:

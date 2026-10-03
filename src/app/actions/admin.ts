@@ -35,7 +35,9 @@ export async function getAdminEchoes(
   mode: "all" | "bubble" | "will" = "all",
   keyword: string = "",
   dateFrom: string = "",
-  dateTo: string = ""
+  dateTo: string = "",
+  sortBy: "created_at" | "view_count" | "resonance_count" | "remaining_views" = "created_at",
+  sortDir: "asc" | "desc" = "desc"
 ) {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_token");
@@ -46,23 +48,26 @@ export async function getAdminEchoes(
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
+  // remaining_views = max_views - view_count は計算列のため DB ソート不可
+  // その場合は view_count で代替ソートして取得し、クライアント側でソートし直す
+  const dbSortColumn = sortBy === "remaining_views" ? "view_count" : sortBy;
+  // remaining_views の昇順 = view_count の降順（残り少ない = view_count 大）
+  const dbSortAsc = sortBy === "remaining_views" ? sortDir === "desc" : sortDir === "asc";
+
   let query = supabase
     .from("echoes")
     .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
+    .order(dbSortColumn, { ascending: dbSortAsc })
     .range(from, to);
 
   if (mode !== "all") {
     query = query.eq("mode", mode);
   }
 
-  // キーワード検索（部分一致）
   if (keyword.trim()) {
     query = query.ilike("content", `%${keyword.trim()}%`);
   }
 
-  // 日時フィルター（dateFrom / dateTo は "YYYY-MM-DD" 形式を想定）
-  // dateFrom は当日 00:00:00 JST = (dateFrom - 9h) UTC として扱う
   if (dateFrom) {
     const fromUtc = new Date(`${dateFrom}T00:00:00+09:00`).toISOString();
     query = query.gte("created_at", fromUtc);
