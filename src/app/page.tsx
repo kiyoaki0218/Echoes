@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search } from "lucide-react";
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
+type MyListTab = "all" | "bubble" | "will";
 
 interface Echo {
   id: string;
@@ -24,6 +25,7 @@ interface MyEchoStatus {
   resonance_count: number;
   remaining_views: number;
   is_deleted: boolean;
+  created_at: string; // ISO文字列 (UTC)
 }
 
 // LocalStorageから共鳴済みIDセット取得
@@ -55,8 +57,13 @@ export default function Home() {
 
   const [myEchoes, setMyEchoes] = useState<MyEchoStatus[]>([]);
   const [showMyList, setShowMyList] = useState<boolean>(false);
-  const [myListTab, setMyListTab] = useState<Mode>("bubble");
+  const [myListTab, setMyListTab] = useState<MyListTab>("all");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // 自分の残響モーダル内の検索・日時フィルター
+  const [myKeyword, setMyKeyword] = useState<string>("");
+  const [myDateFrom, setMyDateFrom] = useState<string>("");
+  const [myDateTo, setMyDateTo] = useState<string>("");
 
   const maxChars = formMode === "bubble" ? 60 : 800;
 
@@ -213,11 +220,7 @@ export default function Home() {
   };
 
   const openMyList = () => {
-    if (mode === "bubble") {
-      setMyListTab("bubble");
-    } else if (mode === "will") {
-      setMyListTab("will");
-    }
+    setMyListTab("all");
     setShowMyList(true);
     fetchMyEchoesStatus();
   };
@@ -240,7 +243,7 @@ export default function Home() {
 
       if (data && data.length > 0) {
         const newEcho = data[0];
-        saveMyEcho(newEcho.id, newEcho.content, formMode);
+        saveMyEcho(newEcho.id, newEcho.content, formMode, newEcho.created_at);
       }
 
       setShowForm(false);
@@ -254,11 +257,11 @@ export default function Home() {
     }
   };
 
-  const saveMyEcho = (id: string, content: string, itemMode: Mode) => {
+  const saveMyEcho = (id: string, content: string, itemMode: Mode, createdAt: string) => {
     try {
       const saved = localStorage.getItem("my_echoes");
       const list = saved ? JSON.parse(saved) : [];
-      list.push({ id, content, mode: itemMode });
+      list.push({ id, content, mode: itemMode, created_at: createdAt });
       localStorage.setItem("my_echoes", JSON.stringify(list));
       fetchMyEchoesStatus();
     } catch (err) {
@@ -273,7 +276,7 @@ export default function Home() {
         setMyEchoes([]);
         return;
       }
-      const list = JSON.parse(saved) as { id: string; content: string; mode?: Mode }[];
+      const list = JSON.parse(saved) as { id: string; content: string; mode?: Mode; created_at?: string }[];
       if (list.length === 0) {
         setMyEchoes([]);
         return;
@@ -282,7 +285,7 @@ export default function Home() {
       const ids = list.map(item => item.id);
       const { data, error } = await supabase
         .from("echoes")
-        .select("id, content, mode, view_count, max_views, resonance_count")
+        .select("id, content, mode, view_count, max_views, resonance_count, created_at")
         .in("id", ids);
 
       if (error) throw error;
@@ -292,6 +295,10 @@ export default function Home() {
       const statuses: MyEchoStatus[] = list.map(item => {
         const dbItem = dbMap.get(item.id);
         if (dbItem) {
+          // DB から取得した created_at を localStorage にも反映（マイグレーション）
+          if (!item.created_at) {
+            item.created_at = dbItem.created_at;
+          }
           return {
             id: item.id,
             content: dbItem.content,
@@ -299,6 +306,7 @@ export default function Home() {
             resonance_count: dbItem.resonance_count,
             remaining_views: Math.max(0, dbItem.max_views - dbItem.view_count),
             is_deleted: false,
+            created_at: dbItem.created_at,
           };
         } else {
           return {
@@ -308,9 +316,18 @@ export default function Home() {
             resonance_count: 0,
             remaining_views: 0,
             is_deleted: true,
+            created_at: item.created_at ?? "",
           };
         }
       });
+
+      // created_at を localStorage に書き戻す（既存データのマイグレーション）
+      const updatedList = list.map(item => {
+        const dbItem = dbMap.get(item.id);
+        return dbItem ? { ...item, created_at: dbItem.created_at } : item;
+      });
+      localStorage.setItem("my_echoes", JSON.stringify(updatedList));
+
       setMyEchoes(statuses.reverse());
     } catch (err) {
       console.error("Error fetching my echoes status:", err);
@@ -357,8 +374,31 @@ export default function Home() {
 
   const isResonated = currentEcho ? resonatedIds.has(currentEcho.id) : false;
 
+  // タブ・検索・日時フィルターで絞り込んだリスト
+  const filteredMyEchoes = myEchoes.filter(e => {
+    if (myListTab !== "all" && e.mode !== myListTab) return false;
+    if (myKeyword.trim() && !e.content.toLowerCase().includes(myKeyword.trim().toLowerCase())) return false;
+    if (myDateFrom && e.created_at) {
+      const from = new Date(`${myDateFrom}T00:00:00+09:00`).getTime();
+      if (new Date(e.created_at).getTime() < from) return false;
+    }
+    if (myDateTo && e.created_at) {
+      const to = new Date(`${myDateTo}T23:59:59+09:00`).getTime();
+      if (new Date(e.created_at).getTime() > to) return false;
+    }
+    return true;
+  });
+
   const myBubbles = myEchoes.filter(e => e.mode === "bubble");
   const myWills = myEchoes.filter(e => e.mode === "will");
+
+  const isMyFiltered = myKeyword.trim() !== "" || myDateFrom !== "" || myDateTo !== "";
+
+  const clearMyFilter = () => {
+    setMyKeyword("");
+    setMyDateFrom("");
+    setMyDateTo("");
+  };
 
   return (
     <div
@@ -498,28 +538,79 @@ export default function Home() {
             <h2 className="text-base sm:text-lg tracking-widest text-neutral-300 font-light mb-4">自分の残響</h2>
 
             {/* タブ */}
-            <div className="flex border-b border-neutral-800 mb-4 font-sans">
-              <button
-                onClick={() => setMyListTab("bubble")}
-                className={`flex-1 pb-2.5 text-xs sm:text-sm transition-all relative ${myListTab === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500 hover:text-neutral-300"}`}
-              >
-                短文 <span className="text-[10px] opacity-60">({myBubbles.length})</span>
-                {myListTab === "bubble" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
-              </button>
-              <button
-                onClick={() => setMyListTab("will")}
-                className={`flex-1 pb-2.5 text-xs sm:text-sm transition-all relative ${myListTab === "will" ? "text-neutral-100 font-medium" : "text-neutral-500 hover:text-neutral-300"}`}
-              >
-                長文 <span className="text-[10px] opacity-60">({myWills.length})</span>
-                {myListTab === "will" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
-              </button>
+            <div className="flex border-b border-neutral-800 mb-3 font-sans shrink-0">
+              {(["all", "bubble", "will"] as const).map(tab => {
+                const count = tab === "all" ? myEchoes.length : tab === "bubble" ? myBubbles.length : myWills.length;
+                const label = tab === "all" ? "すべて" : tab === "bubble" ? "短文" : "長文";
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setMyListTab(tab)}
+                    className={`flex-1 pb-2.5 text-xs sm:text-sm transition-all relative ${myListTab === tab ? "text-neutral-100 font-medium" : "text-neutral-500 hover:text-neutral-300"}`}
+                  >
+                    {label} <span className="text-[10px] opacity-60">({count})</span>
+                    {myListTab === tab && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-200"></div>}
+                  </button>
+                );
+              })}
             </div>
 
+            {/* 検索・日時フィルター */}
+            <div className="flex flex-col gap-2 mb-3 shrink-0">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-500 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={myKeyword}
+                    onChange={e => setMyKeyword(e.target.value)}
+                    placeholder="テキストで検索..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-neutral-800/60 border border-neutral-700 rounded-lg text-xs text-neutral-200 placeholder-neutral-500 outline-none focus:border-neutral-500 transition-colors font-sans"
+                  />
+                </div>
+                {isMyFiltered && (
+                  <button
+                    onClick={clearMyFilter}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-neutral-200 rounded-lg text-xs font-sans transition-colors whitespace-nowrap"
+                  >
+                    <X className="w-3 h-3" />
+                    クリア
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 font-sans">
+                <span className="text-[10px] text-neutral-500 whitespace-nowrap">投稿日:</span>
+                <input
+                  type="date"
+                  value={myDateFrom}
+                  onChange={e => setMyDateFrom(e.target.value)}
+                  className="flex-1 px-2 py-1 bg-neutral-800/60 border border-neutral-700 rounded-lg text-xs text-neutral-200 outline-none focus:border-neutral-500 transition-colors [color-scheme:dark]"
+                />
+                <span className="text-neutral-600 text-xs">〜</span>
+                <input
+                  type="date"
+                  value={myDateTo}
+                  onChange={e => setMyDateTo(e.target.value)}
+                  className="flex-1 px-2 py-1 bg-neutral-800/60 border border-neutral-700 rounded-lg text-xs text-neutral-200 outline-none focus:border-neutral-500 transition-colors [color-scheme:dark]"
+                />
+              </div>
+            </div>
+
+            {/* 件数表示 */}
+            <p className="text-[10px] text-neutral-500 font-sans mb-2 shrink-0">
+              {isMyFiltered
+                ? <><span className="text-neutral-400">検索結果:</span> {filteredMyEchoes.length} 件</>
+                : <>{filteredMyEchoes.length} 件</>
+              }
+            </p>
+
             <div className="flex-1 overflow-y-auto pr-1 space-y-3">
-              {(myListTab === "bubble" ? myBubbles : myWills).length === 0 ? (
-                <p className="text-neutral-500 text-xs sm:text-sm tracking-wider text-center py-12 font-sans">まだ投稿がありません。</p>
+              {filteredMyEchoes.length === 0 ? (
+                <p className="text-neutral-500 text-xs sm:text-sm tracking-wider text-center py-12 font-sans">
+                  {isMyFiltered ? "条件に一致する投稿がありません。" : "まだ投稿がありません。"}
+                </p>
               ) : (
-                (myListTab === "bubble" ? myBubbles : myWills).map((echo) => {
+                filteredMyEchoes.map((echo) => {
                   const isExpanded = expandedIds.has(echo.id);
                   const isLong = echo.mode === "will";
                   return (

@@ -7,6 +7,28 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-09-23 (4回目)
+#### 4. 「自分の残響」モーダルに「すべて」タブ・キーワード検索・日時フィルターを追加
+- **編集箇所**: `src/app/page.tsx`
+- **わかりやすい編集内容**:
+  - 「自分の残響」モーダルのタブに「すべて」を追加（短文/長文/すべての3択）。
+  - テキストによるキーワード検索バーを追加（リアルタイム絞り込み）。
+  - 投稿日の範囲指定フィルター（開始日〜終了日）を追加。
+  - 絞り込み中は「クリア」ボタンを表示し、一括リセット可能。
+  - 件数表示を追加（絞り込み中は「検索結果: N件」に切り替え）。
+- **具体的なプログラムの編集内容**:
+  - `MyEchoStatus` 型に `created_at: string` フィールドを追加。
+  - `saveMyEcho()` の引数に `createdAt: string` を追加し、localStorage の各エントリに `created_at` を保存。
+  - `fetchMyEchoesStatus()` の Supabase クエリに `created_at` を追加。既存の localStorage エントリに `created_at` がない場合は DB から取得した値を書き戻すマイグレーション処理を実装。
+  - `type MyListTab = "all" | "bubble" | "will"` を追加し、`myListTab` の型を `Mode` から `MyListTab` に変更。`openMyList()` のデフォルトタブを `"all"` に変更。
+  - `myKeyword`・`myDateFrom`・`myDateTo` の state を追加。
+  - `filteredMyEchoes` をタブ・キーワード・日時でクライアントサイド絞り込みする派生値として導出（タブで mode 一致、ilike 相当の大文字小文字無視の includes、JST 基準の日時比較）。
+  - `isMyFiltered` フラグと `clearMyFilter()` 関数を追加。
+  - モーダル内タブを `["all","bubble","will"]` のループで生成するよう変更。検索バー・日時ピッカー・件数表示を追加。リストのレンダリングソースを `filteredMyEchoes` に統一。
+  - lucide-react から `Search` を追加インポート。
+
+---
+
 ### 📅 2026-09-23 (3回目)
 #### 3. ダッシュボードへのキーワード検索 ＆ 日時フィルター追加
 - **編集箇所**:
