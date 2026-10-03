@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin } from "@/app/actions/admin";
-import { Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats } from "@/app/actions/admin";
+import { Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, BarChart2, Heart, Zap } from "lucide-react";
 
 type Echo = {
   id: string;
@@ -25,6 +25,10 @@ export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
+  type Stats = { totalCount: number; todayCount: number; totalResonance: number; activeCount: number };
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const fetchEchoes = useCallback(async (page: number, mode: "all" | "bubble" | "will") => {
@@ -41,9 +45,25 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const result = await getAdminStats();
+      setStats(result);
+    } catch {
+      // 統計取得失敗は非致命的 — サイレントに無視
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchEchoes(currentPage, filterMode);
   }, [currentPage, filterMode, fetchEchoes]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const handleFilterChange = (mode: "all" | "bubble" | "will") => {
     setFilterMode(mode);
@@ -95,7 +115,7 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <button
-              onClick={() => fetchEchoes(currentPage, filterMode)}
+              onClick={() => { fetchEchoes(currentPage, filterMode); fetchStats(); }}
               className="flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg hover:bg-neutral-800 transition-colors text-sm font-sans text-neutral-300"
             >
               <RefreshCcw className="w-4 h-4" />
@@ -110,6 +130,54 @@ export default function AdminDashboard() {
             </button>
           </div>
         </header>
+
+        {/* サマリーカード */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[
+            {
+              label: "本日の投稿数",
+              value: stats?.todayCount,
+              icon: <Zap className="w-4 h-4" />,
+              color: "text-yellow-400",
+              bg: "bg-yellow-950/20 border-yellow-900/30",
+            },
+            {
+              label: "総投稿数",
+              value: stats?.totalCount,
+              icon: <FileText className="w-4 h-4" />,
+              color: "text-blue-400",
+              bg: "bg-blue-950/20 border-blue-900/30",
+            },
+            {
+              label: "総共鳴数",
+              value: stats?.totalResonance,
+              icon: <Heart className="w-4 h-4" />,
+              color: "text-red-400",
+              bg: "bg-red-950/20 border-red-900/30",
+            },
+            {
+              label: "アクティブな残響数",
+              value: stats?.activeCount,
+              icon: <BarChart2 className="w-4 h-4" />,
+              color: "text-emerald-400",
+              bg: "bg-emerald-950/20 border-emerald-900/30",
+            },
+          ].map(({ label, value, icon, color, bg }) => (
+            <div key={label} className={`border rounded-xl p-4 flex flex-col gap-3 ${bg}`}>
+              <div className={`flex items-center gap-2 text-xs font-sans font-medium tracking-wider ${color}`}>
+                {icon}
+                <span>{label}</span>
+              </div>
+              {statsLoading ? (
+                <div className="h-7 w-16 bg-neutral-800 animate-pulse rounded" />
+              ) : (
+                <p className="text-2xl font-light text-neutral-100 font-sans">
+                  {value?.toLocaleString() ?? "—"}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
 
         {/* フィルター */}
         <div className="flex items-center justify-between mb-6">

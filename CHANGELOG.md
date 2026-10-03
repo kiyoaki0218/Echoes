@@ -7,6 +7,21 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-09-23 (2回目)
+#### 2. ダッシュボードへのサマリー（統計）カード追加
+- **編集箇所**:
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+- **わかりやすい編集内容**:
+  - ダッシュボード上部に「本日の投稿数」「総投稿数」「総共鳴数」「アクティブな残響数」の4枚の統計カードを追加。
+  - ページ読み込み時に自動取得し、「更新」ボタン押下時にも再取得する。
+  - 取得中はスケルトンアニメーション（shimmer）を表示。
+- **具体的なプログラムの編集内容**:
+  - admin.ts: `getAdminStats()` Server Action を新規追加。Supabase に3本のクエリを `Promise.all` で並列発行し、総件数（`count: "exact"`）・本日分（JST換算の当日0時をUTCに変換して `.gte()` フィルター）・総共鳴数（全行の `resonance_count` を取得して reduce で合算）を取得。戻り値は `{ totalCount, todayCount, totalResonance, activeCount }` 形式。
+  - admin/page.tsx: `getAdminStats` を追加インポート。`lucide-react` から `FileText`・`BarChart2`・`Heart`・`Zap` を追加インポート。`stats`（`Stats | null`）・`statsLoading`（`boolean`）の state を追加。`fetchStats` を `useCallback` で定義し、独立した `useEffect` で初回マウント時に実行。「更新」ボタンのハンドラに `fetchStats()` 呼び出しを追加。ヘッダー直下に4列グリッドのカードUIを追加（各カードはアイコン・ラベル・数値で構成、取得中は `animate-pulse` のスケルトンを表示）。
+
+---
+
 ### 📅 2026-09-29
 #### 1. ダッシュボードのページネーション導入 & 初期表示の高速化
 - **編集箇所**:
