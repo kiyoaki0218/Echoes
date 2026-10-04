@@ -198,3 +198,13 @@ begin
   end if;
 end;
 $$ language plpgsql;
+
+-- =============================================
+-- 長文(will)の初期寿命を 500 → 100 に変更するマイグレーション
+-- 共鳴による延長分（resonance_count * 10）は維持しつつ基礎値を400減らす
+-- view_count + 1 を下回らないよう GREATEST で保護
+-- =============================================
+update echoes
+set max_views = greatest(view_count + 1, max_views - 400)
+where mode = 'will'
+  and max_views >= 500;
