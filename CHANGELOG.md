@@ -7,6 +7,28 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-10-04 (11回目)
+#### 9. 管理者公式お知らせ（公式タグ）投稿・管理 & 期間自動削除システム
+- **編集箇所**:
+  - `supabase.sql`
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+  - `src/app/page.tsx`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - 管理者ダッシュボードに「公式お知らせ」タブを新設。タブ切り替えで投稿管理とお知らせ管理を切り替えられる。
+  - お知らせはタイトル・本文・掲載開始日時・掲載終了日時・ピン留めフラグを持ち、admin権限のみ作成・編集・削除が可能。viewer権限は閲覧専用。
+  - 掲載期間が現在時刻の範囲内にあるお知らせのみメイン画面に表示され、期間外（掲載前・期限切れ）は自動的に非表示になる。
+  - メイン画面のヘッダー直下に「公式」バッジ付きのお知らせバナーを固定表示。複数件ある場合は前後ナビゲーション（カルーセル）で切り替え可能。
+  - ピン留め設定したお知らせは最上部に優先表示され、ピンアイコンで識別できる。
+  - ダッシュボードのお知らせ一覧には掲載前・掲載中・期限切れのステータスバッジを色分け表示。「期限切れ削除」ボタンで一括クリーンアップも可能。
+- **具体的なプログラムの編集内容**:
+  - `supabase.sql`: `announcements` テーブルを新規作成（id/created_at/updated_at/title/content/is_pinned/publish_start/publish_end）。RLS全操作許可ポリシーを追加。`get_active_announcements()` 関数（`now() >= publish_start AND now() < publish_end` の条件で絞り込み、is_pinned降順→publish_start降順でソート）を追加。`delete_expired_announcements()` 関数（期限切れを物理削除して削除件数を返す）を追加。
+  - `src/app/actions/admin.ts`: `Announcement` 型を export。`getAdminAnnouncements()`（全件、管理画面用）、`getActiveAnnouncements()`（RPCで期間内のみ、メイン画面用・認証不要）、`createAnnouncement(params)`、`updateAnnouncement(id, params)`（updated_at自動更新）、`deleteAnnouncement(id)`、`purgeExpiredAnnouncements()`（RPC呼び出し）の6関数を追加。write系は全て admin 権限チェック付き。
+  - `src/app/admin/page.tsx`: インポートに `getAdminAnnouncements`・`createAnnouncement`・`updateAnnouncement`・`deleteAnnouncement`・`purgeExpiredAnnouncements`・`Announcement` 型と `Megaphone`・`Pin`・`PinOff`・`Plus`・`Pencil`・`Clock` アイコンを追加。`pageTab`（"echoes" | "announcements"）state を追加してヘッダー下にタブUIを実装。お知らせ用 state 群（`announcements`・`annLoading`・`annError`・`annModalOpen`・`annEditing`・フォーム各フィールド・`annSaving`・`annFormError`）を追加。`fetchAnnouncements`・`openAnnCreate`・`openAnnEdit`・`handleAnnSave`・`handleAnnDelete`・`handlePurgeExpired`・`getAnnStatus`・`toDatetimeLocal` 関数を追加。既存の投稿管理UIを `{pageTab === "echoes" && ...}` で囲み、お知らせ管理UI（カード一覧＋作成/編集モーダル）を `{pageTab === "announcements" && ...}` ブロックとして追加。
+  - `src/app/page.tsx`: `getActiveAnnouncements` と `Announcement` 型、`Megaphone`・`Pin`・`ChevronLeft`・`ChevronRight` アイコンを追加インポート。`announcements` と `annIndex`（カルーセル用）の state を追加。`useEffect` 内で `getActiveAnnouncements()` を呼び出して初期取得。ヘッダー直下にお知らせバナーUIを追加（公式バッジ・ピン留めアイコン・タイトル・本文2行表示・複数件カルーセルナビ、0件時は非表示）。
+
 ### 📅 2026-10-04 (10回目)
 #### 8. ダッシュボードからの投稿機能（個人アカウントとして）
 - **編集箇所**:

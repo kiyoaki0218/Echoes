@@ -3,7 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag } from "lucide-react";
+import { getActiveAnnouncements, type Announcement } from "@/app/actions/admin";
+import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight } from "lucide-react";
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
@@ -83,6 +84,10 @@ function HomeContent() {
   const [myKeyword, setMyKeyword] = useState<string>("");
   const [myDateFrom, setMyDateFrom] = useState<string>("");
   const [myDateTo, setMyDateTo] = useState<string>("");
+
+  // 公式お知らせ
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [annIndex, setAnnIndex] = useState(0); // 複数ある場合のカルーセル位置
 
   const maxChars = formMode === "bubble" ? 60 : 800;
 
@@ -439,6 +444,8 @@ function HomeContent() {
     setResonatedIds(getResonatedIds());
     setReportedIds(getReportedIds());
     fetchMyEchoesStatus();
+    // 公式お知らせを取得
+    getActiveAnnouncements().then(data => setAnnouncements(data)).catch(() => {});
     if (echoIdFromUrl) {
       // URL に ?echo=<id> がある場合はその投稿を直接取得（閲覧カウントはインクリメントしない）
       (async () => {
@@ -525,6 +532,49 @@ function HomeContent() {
           <button onClick={() => handleModeChange("will")} className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full transition-all duration-300 ${mode === "will" ? "bg-neutral-800 text-neutral-100 shadow-lg" : "text-neutral-500 hover:text-neutral-300"}`}>長文</button>
         </div>
       </header>
+
+      {/* 公式お知らせバナー */}
+      {announcements.length > 0 && (
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 z-10 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="relative bg-neutral-900/70 border border-neutral-700/60 rounded-xl px-4 py-3 flex items-start gap-3 backdrop-blur-sm">
+            {/* 公式バッジ */}
+            <span className="flex items-center gap-1 shrink-0 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium bg-amber-950/50 border border-amber-700/50 text-amber-400 whitespace-nowrap">
+              <Megaphone className="w-3 h-3" />
+              公式
+            </span>
+            {/* 本文 */}
+            <div className="flex-1 min-w-0">
+              {announcements[annIndex].title && (
+                <p className="text-xs font-sans font-medium text-neutral-200 mb-0.5 truncate flex items-center gap-1.5">
+                  {announcements[annIndex].is_pinned && <Pin className="w-3 h-3 text-amber-400 shrink-0" />}
+                  {announcements[annIndex].title}
+                </p>
+              )}
+              <p className="text-[11px] sm:text-xs font-sans text-neutral-400 leading-relaxed line-clamp-2">
+                {announcements[annIndex].content}
+              </p>
+            </div>
+            {/* 複数ある場合のナビゲーション */}
+            {announcements.length > 1 && (
+              <div className="flex items-center gap-1 shrink-0 self-center">
+                <button
+                  onClick={() => setAnnIndex(i => (i - 1 + announcements.length) % announcements.length)}
+                  className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] text-neutral-600 font-sans tabular-nums">{annIndex + 1}/{announcements.length}</span>
+                <button
+                  onClick={() => setAnnIndex(i => (i + 1) % announcements.length)}
+                  className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* メイン */}
       <main className="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 max-w-3xl mx-auto w-full z-10 cursor-pointer overflow-hidden py-2">

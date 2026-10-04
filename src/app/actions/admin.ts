@@ -209,3 +209,130 @@ export async function createAdminEcho(content: string, mode: "bubble" | "will") 
 
   return { success: true, data };
 }
+
+// =============================================
+// 公式お知らせ (announcements) アクション
+// =============================================
+
+export type Announcement = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  publish_start: string;
+  publish_end: string;
+};
+
+/** 全お知らせ一覧取得（管理画面用・期限切れ含む） */
+export async function getAdminAnnouncements(): Promise<Announcement[]> {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .order("is_pinned", { ascending: false })
+    .order("publish_start", { ascending: false });
+
+  if (error) throw new Error("お知らせの取得に失敗しました");
+  return (data ?? []) as Announcement[];
+}
+
+/** 掲載中のお知らせ取得（メイン画面用） */
+export async function getActiveAnnouncements(): Promise<Announcement[]> {
+  const { data, error } = await supabase.rpc("get_active_announcements");
+  if (error) throw new Error("お知らせの取得に失敗しました");
+  return (data ?? []) as Announcement[];
+}
+
+/** お知らせ作成 */
+export async function createAnnouncement(params: {
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  publish_start: string;
+  publish_end: string;
+}) {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("この操作には管理者権限が必要です");
+
+  const { title, content, is_pinned, publish_start, publish_end } = params;
+  if (!title.trim()) throw new Error("タイトルが空です");
+  if (!content.trim()) throw new Error("本文が空です");
+  if (!publish_start || !publish_end) throw new Error("掲載期間を設定してください");
+  if (new Date(publish_end) <= new Date(publish_start)) {
+    throw new Error("終了日時は開始日時より後にしてください");
+  }
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .insert([{ title: title.trim(), content: content.trim(), is_pinned, publish_start, publish_end }])
+    .select()
+    .single();
+
+  if (error) throw new Error("お知らせの作成に失敗しました");
+  return { success: true, data };
+}
+
+/** お知らせ更新 */
+export async function updateAnnouncement(
+  id: string,
+  params: {
+    title: string;
+    content: string;
+    is_pinned: boolean;
+    publish_start: string;
+    publish_end: string;
+  }
+) {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("この操作には管理者権限が必要です");
+
+  const { title, content, is_pinned, publish_start, publish_end } = params;
+  if (!title.trim()) throw new Error("タイトルが空です");
+  if (!content.trim()) throw new Error("本文が空です");
+  if (new Date(publish_end) <= new Date(publish_start)) {
+    throw new Error("終了日時は開始日時より後にしてください");
+  }
+
+  const { error } = await supabase
+    .from("announcements")
+    .update({
+      title: title.trim(),
+      content: content.trim(),
+      is_pinned,
+      publish_start,
+      publish_end,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) throw new Error("お知らせの更新に失敗しました");
+  return { success: true };
+}
+
+/** お知らせ削除 */
+export async function deleteAnnouncement(id: string) {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("この操作には管理者権限が必要です");
+
+  const { error } = await supabase.from("announcements").delete().eq("id", id);
+  if (error) throw new Error("お知らせの削除に失敗しました");
+  return { success: true };
+}
+
+/** 期限切れのお知らせを一括削除（管理者専用） */
+export async function purgeExpiredAnnouncements() {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("この操作には管理者権限が必要です");
+
+  const { data, error } = await supabase.rpc("delete_expired_announcements");
+  if (error) throw new Error("期限切れお知らせの削除に失敗しました");
+  return { success: true, deletedCount: data as number };
+}

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, type Announcement } from "@/app/actions/admin";
 import {
   Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
   Zap, Search, X, Menu, ExternalLink,
   ArrowUpDown, ArrowUp, ArrowDown, Flag, RotateCcw, ShieldAlert,
-  PenTool,
+  PenTool, Megaphone, Pin, PinOff, Plus, Pencil, Clock,
 } from "lucide-react";
 
 type Echo = {
@@ -62,6 +62,9 @@ export default function AdminDashboard() {
   // モバイル: 検索パネルの開閉
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // ページタブ: "echoes" | "announcements"
+  const [pageTab, setPageTab] = useState<"echoes" | "announcements">("echoes");
+
   // 投稿フォームモーダル
   const [postModalOpen, setPostModalOpen] = useState(false);
   const [postContent, setPostContent] = useState("");
@@ -94,6 +97,131 @@ export default function AdminDashboard() {
     } finally {
       setPosting(false);
     }
+  };
+
+  // =============================================
+  // お知らせ管理
+  // =============================================
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [annLoading, setAnnLoading] = useState(false);
+  const [annError, setAnnError] = useState<string | null>(null);
+
+  // お知らせフォームモーダル
+  const [annModalOpen, setAnnModalOpen] = useState(false);
+  const [annEditing, setAnnEditing] = useState<Announcement | null>(null); // nullなら新規、値なら編集
+  const [annTitle, setAnnTitle] = useState("");
+  const [annContent, setAnnContent] = useState("");
+  const [annIsPinned, setAnnIsPinned] = useState(false);
+  const [annPublishStart, setAnnPublishStart] = useState("");
+  const [annPublishEnd, setAnnPublishEnd] = useState("");
+  const [annSaving, setAnnSaving] = useState(false);
+  const [annFormError, setAnnFormError] = useState<string | null>(null);
+
+  const fetchAnnouncements = useCallback(async () => {
+    setAnnLoading(true);
+    setAnnError(null);
+    try {
+      const data = await getAdminAnnouncements();
+      setAnnouncements(data);
+    } catch (err: any) {
+      setAnnError(err.message || "お知らせの取得に失敗しました");
+    } finally {
+      setAnnLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pageTab === "announcements") fetchAnnouncements();
+  }, [pageTab, fetchAnnouncements]);
+
+  // ISO文字列 → datetime-local 入力値に変換
+  const toDatetimeLocal = (iso: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const openAnnCreate = () => {
+    setAnnEditing(null);
+    setAnnTitle("");
+    setAnnContent("");
+    setAnnIsPinned(false);
+    // デフォルト: 今から1週間
+    const now = new Date();
+    const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    setAnnPublishStart(toDatetimeLocal(now.toISOString()));
+    setAnnPublishEnd(toDatetimeLocal(weekLater.toISOString()));
+    setAnnFormError(null);
+    setAnnModalOpen(true);
+  };
+
+  const openAnnEdit = (ann: Announcement) => {
+    setAnnEditing(ann);
+    setAnnTitle(ann.title);
+    setAnnContent(ann.content);
+    setAnnIsPinned(ann.is_pinned);
+    setAnnPublishStart(toDatetimeLocal(ann.publish_start));
+    setAnnPublishEnd(toDatetimeLocal(ann.publish_end));
+    setAnnFormError(null);
+    setAnnModalOpen(true);
+  };
+
+  const handleAnnSave = async () => {
+    if (annSaving) return;
+    setAnnSaving(true);
+    setAnnFormError(null);
+    try {
+      const params = {
+        title: annTitle,
+        content: annContent,
+        is_pinned: annIsPinned,
+        publish_start: new Date(annPublishStart).toISOString(),
+        publish_end: new Date(annPublishEnd).toISOString(),
+      };
+      if (annEditing) {
+        await updateAnnouncement(annEditing.id, params);
+      } else {
+        await createAnnouncement(params);
+      }
+      setAnnModalOpen(false);
+      fetchAnnouncements();
+    } catch (err: any) {
+      setAnnFormError(err.message || "保存に失敗しました");
+    } finally {
+      setAnnSaving(false);
+    }
+  };
+
+  const handleAnnDelete = async (id: string) => {
+    if (!confirm("このお知らせを削除しますか？")) return;
+    try {
+      await deleteAnnouncement(id);
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+    } catch (err: any) {
+      alert(err.message || "削除に失敗しました");
+    }
+  };
+
+  const handlePurgeExpired = async () => {
+    if (!confirm("期限切れのお知らせをすべて削除しますか？")) return;
+    try {
+      const result = await purgeExpiredAnnouncements();
+      alert(`${result.deletedCount}件の期限切れお知らせを削除しました。`);
+      fetchAnnouncements();
+    } catch (err: any) {
+      alert(err.message || "削除に失敗しました");
+    }
+  };
+
+  // お知らせのステータスラベル
+  const getAnnStatus = (ann: Announcement) => {
+    const now = new Date();
+    const start = new Date(ann.publish_start);
+    const end = new Date(ann.publish_end);
+    if (now < start) return { label: "掲載前", color: "text-yellow-400 bg-yellow-950/30 border-yellow-800/40" };
+    if (now >= end)  return { label: "期限切れ", color: "text-neutral-500 bg-neutral-800/40 border-neutral-700/40" };
+    return { label: "掲載中", color: "text-emerald-400 bg-emerald-950/30 border-emerald-800/40" };
   };
 
   const isFiltered = appliedKeyword || appliedDateFrom || appliedDateTo;
@@ -316,7 +444,26 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* ===== サマリーカード ===== */}
+        {/* ===== ページタブ ===== */}
+        <div className="flex bg-neutral-900/50 border border-neutral-800 rounded-xl p-1 gap-1 mb-6 font-sans w-fit">
+          <button
+            onClick={() => setPageTab("echoes")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${pageTab === "echoes" ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"}`}
+          >
+            <FileText className="w-4 h-4" />
+            投稿管理
+          </button>
+          <button
+            onClick={() => setPageTab("announcements")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${pageTab === "announcements" ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"}`}
+          >
+            <Megaphone className="w-4 h-4" />
+            公式お知らせ
+          </button>
+        </div>
+
+        {/* ===== サマリーカード（投稿管理タブのみ） ===== */}
+        {pageTab === "echoes" && (<>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
           {[
             { label: "本日の投稿数", value: stats?.todayCount,     icon: <Zap className="w-4 h-4" />,      color: "text-yellow-400",  bg: "bg-yellow-950/20 border-yellow-900/30" },
@@ -603,6 +750,213 @@ export default function AdminDashboard() {
             {renderPagination("mt-6")}
           </>
         )}
+        </>)} {/* end pageTab === "echoes" */}
+
+        {/* ===== お知らせ管理タブ ===== */}
+        {pageTab === "announcements" && (
+          <div className="font-sans">
+            {/* ヘッダー行 */}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div>
+                <h2 className="text-base font-medium text-neutral-200 flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-neutral-400" />
+                  公式お知らせ管理
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">掲載期間が終了したお知らせはメイン画面に表示されません。</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {role === "admin" && (
+                  <>
+                    <button
+                      onClick={handlePurgeExpired}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg text-sm transition-colors"
+                      title="期限切れを一括削除"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">期限切れ削除</span>
+                    </button>
+                    <button
+                      onClick={openAnnCreate}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-neutral-100 text-neutral-900 rounded-lg hover:bg-white text-sm font-medium transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      新規作成
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={fetchAnnouncements}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg hover:bg-neutral-800 transition-colors text-sm text-neutral-300"
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {annError && (
+              <div className="bg-red-950/30 border border-red-900/50 text-red-400 p-4 rounded-lg mb-4 text-sm">{annError}</div>
+            )}
+
+            {annLoading ? (
+              <div className="text-center py-16 text-neutral-500 text-sm tracking-widest">読み込み中...</div>
+            ) : announcements.length === 0 ? (
+              <div className="text-center py-16 text-neutral-500 text-sm">お知らせはありません</div>
+            ) : (
+              <div className="space-y-3">
+                {announcements.map(ann => {
+                  const status = getAnnStatus(ann);
+                  return (
+                    <div key={ann.id} className="bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          {/* ステータスバッジ */}
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] border font-medium ${status.color}`}>
+                            {status.label}
+                          </span>
+                          {/* ピン留めバッジ */}
+                          {ann.is_pinned && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-amber-950/30 border border-amber-800/40 text-amber-400">
+                              <Pin className="w-2.5 h-2.5" />
+                              固定
+                            </span>
+                          )}
+                          <h3 className="text-sm font-medium text-neutral-200 truncate">{ann.title}</h3>
+                        </div>
+                        {role === "admin" && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => openAnnEdit(ann)}
+                              className="p-1.5 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="編集">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleAnnDelete(ann.id)}
+                              className="p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-4 pb-2">
+                        <p className="text-sm text-neutral-400 whitespace-pre-wrap line-clamp-2">{ann.content}</p>
+                      </div>
+                      <div className="px-4 pb-3 flex items-center gap-4 text-[11px] text-neutral-600">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(ann.publish_start).toLocaleString("ja-JP")} 〜 {new Date(ann.publish_end).toLocaleString("ja-JP")}
+                        </span>
+                        <span>更新: {new Date(ann.updated_at).toLocaleString("ja-JP")}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* お知らせ作成・編集モーダル */}
+            {annModalOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+                onClick={(e) => { if (e.target === e.currentTarget) setAnnModalOpen(false); }}
+              >
+                <div className="w-full max-w-lg bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
+                    <div className="flex items-center gap-2.5">
+                      <Megaphone className="w-4 h-4 text-neutral-400" />
+                      <h2 className="text-sm font-medium text-neutral-200">
+                        {annEditing ? "お知らせを編集" : "新しいお知らせを作成"}
+                      </h2>
+                    </div>
+                    <button onClick={() => setAnnModalOpen(false)}
+                      className="p-1.5 text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="px-5 py-4 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+                    {/* タイトル */}
+                    <div>
+                      <label className="text-xs text-neutral-400 mb-1.5 block">タイトル</label>
+                      <input
+                        type="text"
+                        value={annTitle}
+                        onChange={e => setAnnTitle(e.target.value)}
+                        placeholder="お知らせのタイトル"
+                        className="w-full px-4 py-2.5 bg-neutral-800/60 border border-neutral-700 rounded-xl text-sm text-neutral-200 placeholder-neutral-600 outline-none focus:border-neutral-500 transition-colors"
+                      />
+                    </div>
+
+                    {/* 本文 */}
+                    <div>
+                      <label className="text-xs text-neutral-400 mb-1.5 block">本文</label>
+                      <textarea
+                        value={annContent}
+                        onChange={e => setAnnContent(e.target.value)}
+                        placeholder="お知らせの内容"
+                        rows={5}
+                        className="w-full px-4 py-3 bg-neutral-800/60 border border-neutral-700 rounded-xl text-sm text-neutral-200 placeholder-neutral-600 outline-none focus:border-neutral-500 transition-colors resize-none"
+                      />
+                    </div>
+
+                    {/* 掲載期間 */}
+                    <div>
+                      <label className="text-xs text-neutral-400 mb-1.5 block">掲載開始日時</label>
+                      <input
+                        type="datetime-local"
+                        value={annPublishStart}
+                        onChange={e => setAnnPublishStart(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-neutral-800/60 border border-neutral-700 rounded-xl text-sm text-neutral-200 outline-none focus:border-neutral-500 transition-colors [color-scheme:dark]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-400 mb-1.5 block">掲載終了日時</label>
+                      <input
+                        type="datetime-local"
+                        value={annPublishEnd}
+                        onChange={e => setAnnPublishEnd(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-neutral-800/60 border border-neutral-700 rounded-xl text-sm text-neutral-200 outline-none focus:border-neutral-500 transition-colors [color-scheme:dark]"
+                      />
+                    </div>
+
+                    {/* ピン留め */}
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <div
+                        onClick={() => setAnnIsPinned(v => !v)}
+                        className={`w-10 h-6 rounded-full transition-colors relative ${annIsPinned ? "bg-amber-500" : "bg-neutral-700"}`}
+                      >
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${annIsPinned ? "translate-x-5" : "translate-x-1"}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-neutral-200 flex items-center gap-1.5">
+                          <Pin className="w-3.5 h-3.5 text-amber-400" />
+                          画面上部に固定表示
+                        </p>
+                        <p className="text-xs text-neutral-500">ONにすると最上部に優先表示されます</p>
+                      </div>
+                    </label>
+
+                    {annFormError && (
+                      <p className="text-xs text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">{annFormError}</p>
+                    )}
+
+                    <div className="flex gap-2 justify-end pt-1">
+                      <button onClick={() => setAnnModalOpen(false)}
+                        className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-200 bg-neutral-800 border border-neutral-700 rounded-lg transition-colors">
+                        キャンセル
+                      </button>
+                      <button
+                        onClick={handleAnnSave}
+                        disabled={!annTitle.trim() || !annContent.trim() || !annPublishStart || !annPublishEnd || annSaving}
+                        className="px-5 py-2 text-sm font-medium bg-neutral-100 text-neutral-900 rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {annSaving ? "保存中..." : annEditing ? "更新する" : "作成する"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ===== 投稿フォームモーダル ===== */}
         {postModalOpen && (
           <div

@@ -115,3 +115,50 @@ begin
   );
 end;
 $$ language plpgsql;
+
+-- =============================================
+-- 公式お知らせ (announcements) テーブル
+-- =============================================
+
+create table announcements (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  title text not null,
+  content text not null,
+  is_pinned boolean default false not null,
+  publish_start timestamp with time zone not null,
+  publish_end timestamp with time zone not null
+);
+
+-- RLS
+alter table announcements enable row level security;
+
+create policy "Allow public read access" on announcements for select using (true);
+create policy "Allow public insert access" on announcements for insert with check (true);
+create policy "Allow public update access" on announcements for update using (true);
+create policy "Allow public delete access" on announcements for delete using (true);
+
+-- 掲載期間が有効なお知らせを取得する関数（期限切れは返さない）
+create or replace function get_active_announcements()
+returns setof announcements as $$
+begin
+  return query
+  select * from announcements
+  where now() >= publish_start
+    and now() <  publish_end
+  order by is_pinned desc, publish_start desc;
+end;
+$$ language plpgsql;
+
+-- 期限切れのお知らせを物理削除する関数（定期クリーンアップ用）
+create or replace function delete_expired_announcements()
+returns integer as $$
+declare
+  deleted_count integer;
+begin
+  delete from announcements where now() >= publish_end;
+  get diagnostics deleted_count = row_count;
+  return deleted_count;
+end;
+$$ language plpgsql;
