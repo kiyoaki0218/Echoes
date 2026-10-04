@@ -197,7 +197,7 @@ export async function createAdminEcho(content: string, mode: "bubble" | "will") 
     throw new Error(`文字数が上限（${maxChars}文字）を超えています`);
   }
 
-  const maxViews = mode === "bubble" ? 100 : 500;
+  const maxViews = 100; // bubble・will ともに初期寿命100
 
   const { data, error } = await supabase
     .from("echoes")
@@ -360,5 +360,36 @@ export async function togglePromoteEcho(id: string, isPromoted: boolean) {
     throw new Error("プロモーションの更新に失敗しました");
   }
 
+  return { success: true };
+}
+
+/** 投稿の寿命（max_views）を更新する（管理者専用） */
+export async function updateEchoMaxViews(id: string, maxViews: number) {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("この操作には管理者権限が必要です");
+
+  if (!Number.isInteger(maxViews) || maxViews < 1) {
+    throw new Error("寿命は1以上の整数で入力してください");
+  }
+
+  // 現在の view_count を取得して、max_views が view_count を下回らないよう保護
+  const { data: current, error: fetchError } = await supabase
+    .from("echoes")
+    .select("view_count")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !current) throw new Error("投稿の取得に失敗しました");
+  if (maxViews <= current.view_count) {
+    throw new Error(`現在の閲覧数（${current.view_count}）より大きい値を設定してください`);
+  }
+
+  const { error } = await supabase
+    .from("echoes")
+    .update({ max_views: maxViews })
+    .eq("id", id);
+
+  if (error) throw new Error("寿命の更新に失敗しました");
   return { success: true };
 }

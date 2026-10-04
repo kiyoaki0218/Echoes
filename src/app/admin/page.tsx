@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, togglePromoteEcho, type Announcement } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, togglePromoteEcho, updateEchoMaxViews, type Announcement } from "@/app/actions/admin";
 import {
   Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
@@ -327,6 +327,33 @@ export default function AdminDashboard() {
     }
   };
 
+  // 寿命編集
+  const [editingMaxViewsId, setEditingMaxViewsId] = useState<string | null>(null);
+  const [editingMaxViewsVal, setEditingMaxViewsVal] = useState<string>("");
+
+  const startEditMaxViews = (echo: Echo) => {
+    setEditingMaxViewsId(echo.id);
+    setEditingMaxViewsVal(String(echo.max_views));
+  };
+
+  const cancelEditMaxViews = () => {
+    setEditingMaxViewsId(null);
+    setEditingMaxViewsVal("");
+  };
+
+  const commitEditMaxViews = async (id: string) => {
+    const val = parseInt(editingMaxViewsVal, 10);
+    if (isNaN(val)) { cancelEditMaxViews(); return; }
+    try {
+      await updateEchoMaxViews(id, val);
+      setEchoes(prev => prev.map(e => e.id === id ? { ...e, max_views: val } : e));
+    } catch (err: any) {
+      alert(err.message || "寿命の更新に失敗しました");
+    } finally {
+      cancelEditMaxViews();
+    }
+  };
+
   const handleResetReport = async (id: string) => {
     if (role !== "admin") {
       alert("通報のリセットは管理者権限(admin)のみ可能です。");
@@ -646,7 +673,30 @@ export default function AdminDashboard() {
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
-                            {echo.view_count} / {echo.max_views}
+                            {echo.view_count} / {role === "admin" ? (
+                              editingMaxViewsId === echo.id ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    value={editingMaxViewsVal}
+                                    onChange={e => setEditingMaxViewsVal(e.target.value)}
+                                    onKeyDown={e => { if (e.key === "Enter") commitEditMaxViews(echo.id); if (e.key === "Escape") cancelEditMaxViews(); }}
+                                    onBlur={() => commitEditMaxViews(echo.id)}
+                                    autoFocus
+                                    className="w-16 px-1.5 py-0.5 bg-neutral-800 border border-neutral-600 rounded text-xs text-neutral-100 text-right outline-none focus:border-neutral-400"
+                                    min={echo.view_count + 1}
+                                  />
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => startEditMaxViews(echo)}
+                                  className="underline decoration-dotted underline-offset-2 hover:text-neutral-200 transition-colors"
+                                  title="クリックして寿命を編集"
+                                >
+                                  {echo.max_views}
+                                </button>
+                              )
+                            ) : echo.max_views}
                           </td>
                           <td className={`px-6 py-4 whitespace-nowrap text-right font-sans text-xs ${Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : "text-neutral-400"}`}>
                             {Math.max(0, echo.max_views - echo.view_count)}
@@ -764,7 +814,28 @@ export default function AdminDashboard() {
                     </div>
                     <div className="px-4 pb-3 flex items-center justify-between text-[11px] text-neutral-500">
                       <div className="flex items-center gap-3">
-                        <span>閲覧: <strong className="text-neutral-300">{echo.view_count}</strong> / {echo.max_views}</span>
+                        <span>閲覧: <strong className="text-neutral-300">{echo.view_count}</strong> / {role === "admin" ? (
+                          editingMaxViewsId === echo.id ? (
+                            <input
+                              type="number"
+                              value={editingMaxViewsVal}
+                              onChange={e => setEditingMaxViewsVal(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") commitEditMaxViews(echo.id); if (e.key === "Escape") cancelEditMaxViews(); }}
+                              onBlur={() => commitEditMaxViews(echo.id)}
+                              autoFocus
+                              className="w-14 px-1 py-0.5 bg-neutral-800 border border-neutral-600 rounded text-xs text-neutral-100 text-right outline-none focus:border-neutral-400"
+                              min={echo.view_count + 1}
+                            />
+                          ) : (
+                            <button
+                              onClick={() => startEditMaxViews(echo)}
+                              className="underline decoration-dotted underline-offset-2 hover:text-neutral-200 transition-colors"
+                              title="タップして寿命を編集"
+                            >
+                              {echo.max_views}
+                            </button>
+                          )
+                        ) : echo.max_views}</span>
                         <span className={Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : ""}>
                           残り: <strong>{Math.max(0, echo.max_views - echo.view_count)}</strong>
                         </span>

@@ -324,7 +324,7 @@ function HomeContent() {
         .insert([{
           content: inputContent.trim(),
           mode: formMode,
-          max_views: formMode === "bubble" ? 100 : 500,
+          max_views: 100,
         }])
         .select();
 
