@@ -336,3 +336,26 @@ export async function purgeExpiredAnnouncements() {
   if (error) throw new Error("期限切れお知らせの削除に失敗しました");
   return { success: true, deletedCount: data as number };
 }
+
+// =============================================
+// プロモーション機能アクション
+// =============================================
+
+/** 投稿のプロモーションフラグを切り替える */
+export async function togglePromoteEcho(id: string, isPromoted: boolean) {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("この操作には管理者権限が必要です");
+
+  const { error } = await supabase
+    .from("echoes")
+    .update({ is_promoted: isPromoted })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error toggling promotion:", error);
+    throw new Error("プロモーションの更新に失敗しました");
+  }
+
+  return { success: true };
+}

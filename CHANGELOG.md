@@ -7,6 +7,27 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-10-04 (12回目)
+#### 10. プロモーション投稿機能
+- **編集箇所**:
+  - `supabase.sql`
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+  - `src/app/page.tsx`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - 管理者ダッシュボードの各投稿に「★」ボタンを追加。クリックするとその投稿をプロモーション（優先表示）ON/OFFできる。
+  - プロモーション中の投稿には amber色の「★ PR」バッジがテーブル・モバイルカードの両方に表示される。
+  - メイン画面でも、プロモーション投稿が表示された際はモードタグ（泡沫/遺言）の横に amber色「★ PR」バッジを表示。
+  - プロモーション優先ロジックはDB側のRPC関数で管理：プロモーション投稿が存在する場合、30%の確率でプロモーション投稿を優先返却し、残り70%は通常ランダム取得。プロモーション投稿がなければ通常ランダム取得にフォールバック。
+  - 操作はadmin権限のみ可能（viewer権限にはボタン非表示）。
+- **具体的なプログラムの編集内容**:
+  - `supabase.sql`: `echoes` テーブルに `is_promoted` カラム（boolean, default false, not null）を `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` で追加。`get_random_echo(post_mode)` 関数を `CREATE OR REPLACE` で上書き。promoted投稿件数を事前に取得し、件数>0 かつ `random() < 0.3` の場合は `is_promoted = true` の投稿からランダム返却、それ以外は全件からランダム返却するロジックに変更。
+  - `src/app/actions/admin.ts`: `togglePromoteEcho(id: string, isPromoted: boolean)` Server Action を追加。admin権限チェック後、Supabase の `echoes` テーブルの `is_promoted` を指定値に update。
+  - `src/app/admin/page.tsx`: `togglePromoteEcho` を追加インポート。`Star` アイコンを追加インポート。`Echo` 型に `is_promoted?: boolean` を追加。`handleTogglePromote(id, current)` ハンドラーを追加（楽観的UI更新付き）。デスクトップテーブルのモードバッジ列に amber 色の「★ PR」バッジを追加。テーブル操作列に admin 専用のプロモーション切り替えボタン（★アイコン、ON時は fill-amber-400）を追加。モバイルカードにも同様のバッジとボタンを追加。
+  - `src/app/page.tsx`: `Echo` 型に `is_promoted?: boolean` を追加。`Star` アイコンを追加インポート。モードタグ表示部分（泡沫/遺言バッジ）を `flex` コンテナに変更し、`is_promoted === true` の場合に amber 色「★ PR」バッジを横並びで表示。
+
 ### 📅 2026-10-04 (11回目)
 #### 9. 管理者公式お知らせ（公式タグ）投稿・管理 & 期間自動削除システム
 - **編集箇所**:

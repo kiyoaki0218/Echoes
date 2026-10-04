@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getActiveAnnouncements, type Announcement } from "@/app/actions/admin";
-import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight } from "lucide-react";
+import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight, Star } from "lucide-react";
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
@@ -18,6 +18,7 @@ interface Echo {
   max_views: number;
   resonance_count: number;
   is_reported: boolean;
+  is_promoted?: boolean;
   created_at: string;
 }
 
@@ -586,10 +587,16 @@ function HomeContent() {
           ) : currentEcho ? (
             <div className="w-full flex flex-col items-center text-center max-h-[70dvh] justify-center">
               {/* モードタグ（泡沫/遺言） */}
-              <div className="mb-3 sm:mb-4 shrink-0">
+              <div className="mb-3 sm:mb-4 shrink-0 flex items-center justify-center gap-2">
                 <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-sans border ${currentEcho.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
                   {currentEcho.mode === "bubble" ? "泡沫" : "遺言"}
                 </span>
+                {currentEcho.is_promoted && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-sans bg-amber-950/40 border border-amber-800/50 text-amber-400">
+                    <Star className="w-2.5 h-2.5 fill-amber-400" />
+                    PR
+                  </span>
+                )}
               </div>
 
               {/* コンテンツ本文（長文の場合はスマホでスクロール可能に） */}

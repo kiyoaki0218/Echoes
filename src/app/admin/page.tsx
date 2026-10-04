@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, type Announcement } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, togglePromoteEcho, type Announcement } from "@/app/actions/admin";
 import {
   Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
   Zap, Search, X, Menu, ExternalLink,
   ArrowUpDown, ArrowUp, ArrowDown, Flag, RotateCcw, ShieldAlert,
-  PenTool, Megaphone, Pin, PinOff, Plus, Pencil, Clock,
+  PenTool, Megaphone, Pin, PinOff, Plus, Pencil, Clock, Star,
 } from "lucide-react";
 
 type Echo = {
@@ -19,6 +19,7 @@ type Echo = {
   max_views: number;
   resonance_count: number;
   report_count?: number;
+  is_promoted?: boolean;
 };
 
 type SortBy = "created_at" | "view_count" | "resonance_count" | "remaining_views" | "report_count";
@@ -317,6 +318,15 @@ export default function AdminDashboard() {
     } catch (err: any) { alert(err.message || "削除に失敗しました"); }
   };
 
+  const handleTogglePromote = async (id: string, current: boolean) => {
+    try {
+      await togglePromoteEcho(id, !current);
+      setEchoes(prev => prev.map(e => e.id === id ? { ...e, is_promoted: !current } : e));
+    } catch (err: any) {
+      alert(err.message || "プロモーションの更新に失敗しました");
+    }
+  };
+
   const handleResetReport = async (id: string) => {
     if (role !== "admin") {
       alert("通報のリセットは管理者権限(admin)のみ可能です。");
@@ -593,8 +603,7 @@ export default function AdminDashboard() {
                     <tr>
                       <SortTh col="created_at">投稿日時</SortTh>
                       <th className="px-6 py-4 font-medium whitespace-nowrap">モード</th>
-                      <th className="px-6 py-4 font-medium w-full">内容</th>
-                      <SortTh col="view_count" className="text-right">閲覧数</SortTh>
+                      <th className="px-6 py-4 font-medium w-full">内容</th>                      <SortTh col="view_count" className="text-right">閲覧数</SortTh>
                       <SortTh col="remaining_views" className="text-right">残り</SortTh>
                       <SortTh col="resonance_count" className="text-right">共鳴数</SortTh>
                       <SortTh col="report_count" className="text-right">通報数</SortTh>
@@ -612,6 +621,11 @@ export default function AdminDashboard() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
+                              {echo.is_promoted && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-amber-950/60 border border-amber-800/50 text-amber-400 font-sans">
+                                  <Star className="w-2.5 h-2.5 fill-amber-400" />PR
+                                </span>
+                              )}
                               {isReported && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-950/80 border border-rose-800/60 text-rose-300 font-sans flex items-center gap-0.5" title={`${echo.report_count}件の通報`}>
                                   <Flag className="w-2.5 h-2.5" />
@@ -648,6 +662,15 @@ export default function AdminDashboard() {
                                 className="p-2 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
                                 <ExternalLink className="w-4 h-4" />
                               </a>
+                              {role === "admin" && (
+                                <button
+                                  onClick={() => handleTogglePromote(echo.id, echo.is_promoted ?? false)}
+                                  className={`p-2 rounded-lg transition-colors ${echo.is_promoted ? "text-amber-400 hover:text-amber-200 hover:bg-amber-950/40" : "text-neutral-500 hover:text-amber-400 hover:bg-amber-950/30"}`}
+                                  title={echo.is_promoted ? "プロモーション解除" : "プロモーションに設定"}
+                                >
+                                  <Star className={`w-4 h-4 ${echo.is_promoted ? "fill-amber-400" : ""}`} />
+                                </button>
+                              )}
                               {isReported && role === "admin" && (
                                 <button onClick={() => handleResetReport(echo.id)}
                                   className="p-2 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg transition-colors" title="通報カウントを0にリセット">
@@ -683,6 +706,11 @@ export default function AdminDashboard() {
                     <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-neutral-800/50">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
+                        {echo.is_promoted && (
+                          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-amber-950/60 border border-amber-800/50 text-amber-400">
+                            <Star className="w-2.5 h-2.5 fill-amber-400" />PR
+                          </span>
+                        )}
                         {isReported && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-950/80 border border-rose-800/60 text-rose-300 flex items-center gap-0.5">
                             <Flag className="w-2.5 h-2.5" />
@@ -696,6 +724,15 @@ export default function AdminDashboard() {
                           className="p-1.5 text-neutral-600 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
                           <ExternalLink className="w-4 h-4" />
                         </a>
+                        {role === "admin" && (
+                          <button
+                            onClick={() => handleTogglePromote(echo.id, echo.is_promoted ?? false)}
+                            className={`p-1.5 rounded-lg transition-colors ${echo.is_promoted ? "text-amber-400 hover:text-amber-200 hover:bg-amber-950/40" : "text-neutral-600 hover:text-amber-400 hover:bg-amber-950/30"}`}
+                            title={echo.is_promoted ? "プロモーション解除" : "プロモーションに設定"}
+                          >
+                            <Star className={`w-4 h-4 ${echo.is_promoted ? "fill-amber-400" : ""}`} />
+                          </button>
+                        )}
                         {isReported && role === "admin" && (
                           <button onClick={() => handleResetReport(echo.id)}
                             className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg transition-colors" title="通報カウントを0にリセット">

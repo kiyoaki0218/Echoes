@@ -162,3 +162,39 @@ begin
   return deleted_count;
 end;
 $$ language plpgsql;
+
+-- =============================================
+-- プロモーション機能 (is_promoted カラム追加)
+-- =============================================
+
+-- echoes テーブルに is_promoted フラグを追加
+alter table echoes add column if not exists is_promoted boolean default false not null;
+
+-- プロモーション投稿を優先してランダム取得する関数
+-- promoted な投稿があれば 30% の確率でそちらを返す。なければ通常のランダム取得にフォールバック
+create or replace function get_random_echo(post_mode text)
+returns setof echoes as $$
+declare
+  promoted_count int;
+begin
+  -- プロモーション投稿の件数を確認
+  select count(*) into promoted_count
+  from echoes
+  where mode = post_mode and is_promoted = true;
+
+  -- プロモーション投稿がある かつ 30% の確率でプロモーションを返す
+  if promoted_count > 0 and random() < 0.3 then
+    return query
+      select * from echoes
+      where mode = post_mode and is_promoted = true
+      order by random()
+      limit 1;
+  else
+    return query
+      select * from echoes
+      where mode = post_mode
+      order by random()
+      limit 1;
+  end if;
+end;
+$$ language plpgsql;
