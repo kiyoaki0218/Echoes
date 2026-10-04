@@ -425,7 +425,7 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
-            {role === "admin" && (
+            {role !== null && (
               <button
                 onClick={handleOpenPostModal}
                 className="flex items-center gap-2 px-3 md:px-4 py-2 bg-neutral-100 text-neutral-900 rounded-lg hover:bg-white transition-colors text-sm font-sans font-medium"

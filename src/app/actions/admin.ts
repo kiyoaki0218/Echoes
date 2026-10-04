@@ -187,7 +187,7 @@ export async function resetAdminReport(id: string) {
 export async function createAdminEcho(content: string, mode: "bubble" | "will") {
   const role = await getAdminRole();
   if (!role) throw new Error("Unauthorized");
-  if (role !== "admin") throw new Error("投稿にはadmin権限が必要です");
+  // viewer も個人投稿は可能（削除・プロモーション等の管理操作は admin のみ）
 
   const trimmed = content.trim();
   if (!trimmed) throw new Error("投稿内容が空です");
