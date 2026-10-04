@@ -180,3 +180,32 @@ export async function resetAdminReport(id: string) {
 
   return { success: true };
 }
+
+export async function createAdminEcho(content: string, mode: "bubble" | "will") {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("投稿にはadmin権限が必要です");
+
+  const trimmed = content.trim();
+  if (!trimmed) throw new Error("投稿内容が空です");
+
+  const maxChars = mode === "bubble" ? 60 : 800;
+  if (trimmed.length > maxChars) {
+    throw new Error(`文字数が上限（${maxChars}文字）を超えています`);
+  }
+
+  const maxViews = mode === "bubble" ? 100 : 500;
+
+  const { data, error } = await supabase
+    .from("echoes")
+    .insert([{ content: trimmed, mode, max_views: maxViews }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating echo:", error);
+    throw new Error("投稿の作成に失敗しました");
+  }
+
+  return { success: true, data };
+}

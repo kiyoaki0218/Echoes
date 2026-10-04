@@ -7,6 +7,23 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-10-04 (10回目)
+#### 8. ダッシュボードからの投稿機能（個人アカウントとして）
+- **編集箇所**:
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - 管理者ダッシュボードのヘッダーに「投稿する」ボタン（`PenTool` アイコン）を追加。admin権限を持つユーザーのみ表示され、viewer権限では非表示。
+  - ボタン押下でモーダルが開き、泡沫（短文・60文字）と遺言（長文・800文字）を切り替えて通常投稿と同じ条件で投稿できる。
+  - テキストエリアの右下にリアルタイム文字数カウンターを表示（90%超で amber 色に変化）。
+  - 投稿完了後、ダッシュボードの一覧とサマリー統計を自動更新。
+  - サーバー側でもadmin権限チェック・文字数バリデーション・max_views自動設定（bubble=100/will=500）を実施。
+- **具体的なプログラムの編集内容**:
+  - `src/app/actions/admin.ts`: `createAdminEcho(content: string, mode: "bubble" | "will")` Server Action を追加。admin権限チェック（viewer・未認証は拒否）、トリム後の空文字チェック、モード別文字数上限チェック（bubble=60/will=800）、Supabase への insert（max_views を mode に応じて自動設定）を実装。
+  - `src/app/admin/page.tsx`: `createAdminEcho` と `PenTool` アイコンを追加インポート。`postModalOpen`・`postContent`・`postMode`・`posting`・`postError` の5つの state を追加。`handleOpenPostModal()`（state初期化してモーダルを開く）と `handlePost()`（Server Action呼び出し→成功時に一覧・統計を再取得）ハンドラーを追加。ヘッダーのボタン群に role === "admin" のみ表示される「投稿する」ボタンを追加。JSX末尾に投稿フォームモーダル（オーバーレイ＋カード形式）を追加。モーダル内にモード切替タブ・テキストエリア（文字数カウンター付き）・エラー表示・キャンセル/投稿ボタンを実装。
+
 ### 📅 2026-10-04 (9回目)
 #### 7. 一般ユーザーからの「通報」機能 ＆ ダッシュボード連動
 - **編集箇所**:

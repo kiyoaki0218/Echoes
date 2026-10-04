@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho } from "@/app/actions/admin";
 import {
   Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
   Zap, Search, X, Menu, ExternalLink,
   ArrowUpDown, ArrowUp, ArrowDown, Flag, RotateCcw, ShieldAlert,
+  PenTool,
 } from "lucide-react";
 
 type Echo = {
@@ -60,6 +61,40 @@ export default function AdminDashboard() {
 
   // モバイル: 検索パネルの開閉
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // 投稿フォームモーダル
+  const [postModalOpen, setPostModalOpen] = useState(false);
+  const [postContent, setPostContent] = useState("");
+  const [postMode, setPostMode] = useState<"bubble" | "will">("bubble");
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+
+  const maxPostChars = postMode === "bubble" ? 60 : 800;
+
+  const handleOpenPostModal = () => {
+    setPostContent("");
+    setPostMode("bubble");
+    setPostError(null);
+    setPostModalOpen(true);
+  };
+
+  const handlePost = async () => {
+    if (!postContent.trim() || posting) return;
+    setPosting(true);
+    setPostError(null);
+    try {
+      await createAdminEcho(postContent, postMode);
+      setPostModalOpen(false);
+      setPostContent("");
+      // 一覧と統計を最新化
+      fetchEchoes(currentPage, filterMode, appliedKeyword, appliedDateFrom, appliedDateTo, sortBy, sortDir);
+      fetchStats();
+    } catch (err: any) {
+      setPostError(err.message || "投稿に失敗しました");
+    } finally {
+      setPosting(false);
+    }
+  };
 
   const isFiltered = appliedKeyword || appliedDateFrom || appliedDateTo;
 
@@ -252,6 +287,16 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
+            {role === "admin" && (
+              <button
+                onClick={handleOpenPostModal}
+                className="flex items-center gap-2 px-3 md:px-4 py-2 bg-neutral-100 text-neutral-900 rounded-lg hover:bg-white transition-colors text-sm font-sans font-medium"
+                title="新しい投稿を作成"
+              >
+                <PenTool className="w-4 h-4" />
+                <span className="hidden md:inline">投稿する</span>
+              </button>
+            )}
             <button
               onClick={() => { fetchEchoes(currentPage, filterMode, appliedKeyword, appliedDateFrom, appliedDateTo, sortBy, sortDir); fetchStats(); }}
               className="flex items-center gap-2 px-3 md:px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg hover:bg-neutral-800 transition-colors text-sm font-sans text-neutral-300"
@@ -557,6 +602,88 @@ export default function AdminDashboard() {
             {/* 下部ページネーション */}
             {renderPagination("mt-6")}
           </>
+        )}
+        {/* ===== 投稿フォームモーダル ===== */}
+        {postModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) setPostModalOpen(false); }}
+          >
+            <div className="w-full max-w-lg bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl font-sans overflow-hidden">
+              {/* モーダルヘッダー */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
+                <div className="flex items-center gap-2.5">
+                  <PenTool className="w-4 h-4 text-neutral-400" />
+                  <h2 className="text-sm font-medium text-neutral-200 tracking-wide">新しい投稿を作成</h2>
+                </div>
+                <button
+                  onClick={() => setPostModalOpen(false)}
+                  className="p-1.5 text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* モーダル本体 */}
+              <div className="px-5 py-4 flex flex-col gap-4">
+                {/* モード選択 */}
+                <div className="flex bg-neutral-800/60 border border-neutral-700 rounded-xl p-1 gap-1">
+                  <button
+                    onClick={() => { setPostMode("bubble"); setPostContent(""); setPostError(null); }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${postMode === "bubble" ? "bg-blue-950/70 text-blue-300 border border-blue-800/50" : "text-neutral-500 hover:text-neutral-300"}`}
+                  >
+                    泡沫 <span className="text-xs font-normal opacity-70">（短文 · 60文字）</span>
+                  </button>
+                  <button
+                    onClick={() => { setPostMode("will"); setPostContent(""); setPostError(null); }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${postMode === "will" ? "bg-purple-950/70 text-purple-300 border border-purple-800/50" : "text-neutral-500 hover:text-neutral-300"}`}
+                  >
+                    遺言 <span className="text-xs font-normal opacity-70">（長文 · 800文字）</span>
+                  </button>
+                </div>
+
+                {/* テキストエリア */}
+                <div className="relative">
+                  <textarea
+                    autoFocus
+                    value={postContent}
+                    onChange={(e) => { setPostContent(e.target.value); setPostError(null); }}
+                    placeholder={postMode === "bubble" ? "泡沫のような短い言葉を..." : "遺言のような長い想いを..."}
+                    rows={postMode === "bubble" ? 3 : 7}
+                    maxLength={maxPostChars}
+                    className="w-full px-4 py-3 bg-neutral-800/60 border border-neutral-700 rounded-xl text-sm text-neutral-200 placeholder-neutral-600 outline-none focus:border-neutral-500 transition-colors resize-none font-serif leading-relaxed"
+                  />
+                  <span className={`absolute bottom-3 right-3 text-[11px] tabular-nums transition-colors ${postContent.length > maxPostChars * 0.9 ? "text-amber-400" : "text-neutral-600"}`}>
+                    {postContent.length} / {maxPostChars}
+                  </span>
+                </div>
+
+                {/* エラー表示 */}
+                {postError && (
+                  <p className="text-xs text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">
+                    {postError}
+                  </p>
+                )}
+
+                {/* アクションボタン */}
+                <div className="flex gap-2 justify-end pt-1">
+                  <button
+                    onClick={() => setPostModalOpen(false)}
+                    className="px-4 py-2 text-sm text-neutral-400 hover:text-neutral-200 bg-neutral-800 border border-neutral-700 rounded-lg transition-colors"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handlePost}
+                    disabled={!postContent.trim() || posting || postContent.length > maxPostChars}
+                    className="px-5 py-2 text-sm font-medium bg-neutral-100 text-neutral-900 rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {posting ? "投稿中..." : "投稿する"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
