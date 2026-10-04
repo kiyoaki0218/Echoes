@@ -117,7 +117,7 @@ export async function getAdminStats() {
     Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate()) - jstOffset
   );
 
-  const [totalResult, todayResult, resonanceResult, reportedResult] = await Promise.all([
+  const [totalResult, todayResult, resonanceResult, reportedResult, promotedResult] = await Promise.all([
     // 総投稿数 & アクティブ残響数（= 総投稿数、消滅済みは DB から削除済みのため）
     supabase.from("echoes").select("id", { count: "exact", head: true }),
     // 本日の投稿数
@@ -129,6 +129,8 @@ export async function getAdminStats() {
     supabase.from("echoes").select("resonance_count"),
     // 通報された投稿数 (report_count > 0)
     supabase.from("echoes").select("id", { count: "exact", head: true }).gt("report_count", 0),
+    // プロモーション中の投稿数 (is_promoted = true)
+    supabase.from("echoes").select("id", { count: "exact", head: true }).eq("is_promoted", true),
   ]);
 
   if (totalResult.error || todayResult.error || resonanceResult.error) {
@@ -146,6 +148,7 @@ export async function getAdminStats() {
     totalResonance,
     activeCount: totalResult.count ?? 0, // 消滅済みは物理削除されるため現存数 = アクティブ数
     reportedCount: reportedResult.count ?? 0,
+    promotedCount: promotedResult.count ?? 0,
   };
 }
 

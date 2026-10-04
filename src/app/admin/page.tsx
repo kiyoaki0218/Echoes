@@ -227,7 +227,7 @@ export default function AdminDashboard() {
 
   const isFiltered = appliedKeyword || appliedDateFrom || appliedDateTo;
 
-  type Stats = { totalCount: number; todayCount: number; totalResonance: number; activeCount: number; reportedCount?: number };
+  type Stats = { totalCount: number; todayCount: number; totalResonance: number; activeCount: number; reportedCount?: number; promotedCount?: number };
   const [stats, setStats] = useState<Stats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -474,13 +474,14 @@ export default function AdminDashboard() {
 
         {/* ===== サマリーカード（投稿管理タブのみ） ===== */}
         {pageTab === "echoes" && (<>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
           {[
-            { label: "本日の投稿数", value: stats?.todayCount,     icon: <Zap className="w-4 h-4" />,      color: "text-yellow-400",  bg: "bg-yellow-950/20 border-yellow-900/30" },
-            { label: "総投稿数",     value: stats?.totalCount,     icon: <FileText className="w-4 h-4" />, color: "text-blue-400",    bg: "bg-blue-950/20 border-blue-900/30" },
-            { label: "総共鳴数",     value: stats?.totalResonance, icon: <Heart className="w-4 h-4" />,    color: "text-red-400",     bg: "bg-red-950/20 border-red-900/30" },
-            { label: "アクティブ",   value: stats?.activeCount,    icon: <BarChart2 className="w-4 h-4" />,color: "text-emerald-400", bg: "bg-emerald-950/20 border-emerald-900/30" },
-            { label: "通報投稿",     value: stats?.reportedCount,  icon: <ShieldAlert className="w-4 h-4" />,color: "text-rose-400",    bg: "bg-rose-950/20 border-rose-900/30" },
+            { label: "本日の投稿数", value: stats?.todayCount,     icon: <Zap className="w-4 h-4" />,         color: "text-yellow-400",  bg: "bg-yellow-950/20 border-yellow-900/30" },
+            { label: "総投稿数",     value: stats?.totalCount,     icon: <FileText className="w-4 h-4" />,    color: "text-blue-400",    bg: "bg-blue-950/20 border-blue-900/30" },
+            { label: "総共鳴数",     value: stats?.totalResonance, icon: <Heart className="w-4 h-4" />,       color: "text-red-400",     bg: "bg-red-950/20 border-red-900/30" },
+            { label: "アクティブ",   value: stats?.activeCount,    icon: <BarChart2 className="w-4 h-4" />,   color: "text-emerald-400", bg: "bg-emerald-950/20 border-emerald-900/30" },
+            { label: "通報投稿",     value: stats?.reportedCount,  icon: <ShieldAlert className="w-4 h-4" />, color: "text-rose-400",    bg: "bg-rose-950/20 border-rose-900/30" },
+            { label: "PR投稿",       value: stats?.promotedCount,  icon: <Star className="w-4 h-4" />,        color: "text-amber-400",   bg: "bg-amber-950/20 border-amber-900/30" },
           ].map(({ label, value, icon, color, bg }) => (
             <div key={label} className={`border rounded-xl p-3 md:p-4 flex flex-col gap-2 md:gap-3 ${bg}`}>
               <div className={`flex items-center gap-1.5 text-[11px] md:text-xs font-sans font-medium tracking-wider ${color}`}>
