@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole } from "@/app/actions/admin";
 import {
   Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
@@ -21,6 +21,7 @@ type Echo = {
 
 type SortBy = "created_at" | "view_count" | "resonance_count" | "remaining_views";
 type SortDir = "asc" | "desc";
+type AdminRole = "admin" | "viewer";
 
 const PAGE_SIZE = 50;
 
@@ -51,6 +52,9 @@ export default function AdminDashboard() {
   // ソート
   const [sortBy, setSortBy] = useState<SortBy>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // ロール（初回マウント時に取得）
+  const [role, setRole] = useState<AdminRole | null>(null);
 
   // モバイル: 検索パネルの開閉
   const [searchOpen, setSearchOpen] = useState(false);
@@ -99,6 +103,10 @@ export default function AdminDashboard() {
   }, [currentPage, filterMode, appliedKeyword, appliedDateFrom, appliedDateTo, sortBy, sortDir, fetchEchoes]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  useEffect(() => {
+    getAdminRole().then(r => setRole(r));
+  }, []);
 
   const handleFilterChange = (mode: "all" | "bubble" | "will") => {
     setFilterMode(mode);
@@ -194,7 +202,12 @@ export default function AdminDashboard() {
         <header className="flex items-center justify-between border-b border-neutral-800 pb-4 md:pb-6 mb-4 md:mb-6 gap-3">
           <div>
             <h1 className="text-lg md:text-2xl tracking-widest text-neutral-300 font-light leading-tight">管理者ダッシュボード</h1>
-            <p className="text-xs md:text-sm font-sans text-neutral-500 mt-0.5">全投稿の管理</p>
+            <p className="text-xs md:text-sm font-sans text-neutral-500 mt-0.5">
+              {role === "viewer"
+                ? <span className="inline-flex items-center gap-1.5"><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400"></span><span className="text-amber-400/80">閲覧専用モード — 削除・編集操作は無効</span></span>
+                : "全投稿の管理"
+              }
+            </p>
           </div>
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <button
@@ -383,10 +396,16 @@ export default function AdminDashboard() {
                               className="p-2 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
                               <ExternalLink className="w-4 h-4" />
                             </a>
-                            <button onClick={() => handleDelete(echo.id)}
-                              className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {role === "admin" ? (
+                              <button onClick={() => handleDelete(echo.id)}
+                                className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <span className="p-2 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
+                                <Trash2 className="w-4 h-4" />
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -410,10 +429,16 @@ export default function AdminDashboard() {
                         className="p-1.5 text-neutral-600 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
                         <ExternalLink className="w-4 h-4" />
                       </a>
-                      <button onClick={() => handleDelete(echo.id)}
-                        className="p-1.5 text-neutral-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {role === "admin" ? (
+                        <button onClick={() => handleDelete(echo.id)}
+                          className="p-1.5 text-neutral-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <span className="p-1.5 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
+                          <Trash2 className="w-4 h-4" />
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="px-4 py-3">

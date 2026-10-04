@@ -7,6 +7,24 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-09-23 (8回目)
+#### 6. 閲覧専用（ビューアー）権限の追加
+- **編集箇所**:
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+  - `.env.local`（コメント追記のみ）
+- **わかりやすい編集内容**:
+  - 管理者パスコード（`ADMIN_PASSCODE`）とは別に閲覧専用パスコード（`VIEWER_PASSCODE`）を追加。ログイン時に入力したパスコードでロールが自動判別される。
+  - 閲覧専用ユーザーはダッシュボードの閲覧・検索・ソートはすべて利用できるが、投稿の削除ボタンが非活性（グレーアウト）になり操作不可になる。
+  - ダッシュボードのヘッダーに「閲覧専用モード — 削除・編集操作は無効」バッジを表示してロールを明示。
+  - サーバー側でも `deleteAdminEcho` に権限チェックを追加し、viewer が直接 Action を呼んでも拒否される二重ガードを実装。
+- **具体的なプログラムの編集内容**:
+  - admin.ts: `VIEWER_PASSCODE` 定数を追加（env 未設定時は `"viewer"` にフォールバック）。`AdminRole = "admin" | "viewer"` 型を追加。`getAdminRole()` 関数を追加（クッキーの `admin_token` 値が `"authenticated"` なら `"admin"`、`"viewer"` なら `"viewer"`、それ以外は `null` を返す）。`loginAdmin` を拡張し、管理者パスコード一致時は `"authenticated"`、閲覧専用パスコード一致時は `"viewer"` をクッキーにセット。`getAdminEchoes`・`getAdminStats` の認証チェックを `getAdminRole()` ベースに変更（role が null なら Unauthorized）。`deleteAdminEcho` に `role !== "admin"` のチェックを追加し、viewer がアクセスすると「この操作には管理者権限が必要です」エラーを返す。
+  - admin/page.tsx: `getAdminRole` をインポート追加。`AdminRole` 型と `role` state を追加。`useEffect` で初回マウント時に `getAdminRole()` を呼び出し `role` に保存。ヘッダーの説明文を `role === "viewer"` の場合に amber 色の「閲覧専用モード」バッジに切り替え。テーブルの削除 `<button>` とモバイルカードの削除 `<button>` をそれぞれ `role === "admin"` の場合のみ活性ボタンで表示し、それ以外は `cursor-not-allowed` の薄いアイコンに差し替え。
+  - .env.local: `ADMIN_PASSCODE` と `VIEWER_PASSCODE` の設定例をコメントとして追記。
+
+---
+
 ### 📅 2026-09-23 (7回目)
 #### 6. ダッシュボードに昇順/降順ソート機能を追加
 - **編集箇所**:

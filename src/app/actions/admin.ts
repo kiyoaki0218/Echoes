@@ -4,18 +4,39 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-const ADMIN_PASSCODE = process.env.ADMIN_PASSCODE || "secret";
+const ADMIN_PASSCODE  = process.env.ADMIN_PASSCODE  || "secret";
+const VIEWER_PASSCODE = process.env.VIEWER_PASSCODE || "viewer";
 const PAGE_SIZE = 50;
+
+type AdminRole = "admin" | "viewer";
+
+/** クッキーからロールを返す。未認証なら null */
+export async function getAdminRole(): Promise<AdminRole | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_token")?.value;
+  if (token === "authenticated") return "admin";
+  if (token === "viewer")        return "viewer";
+  return null;
+}
 
 export async function loginAdmin(formData: FormData) {
   const passcode = formData.get("passcode");
-  
+
   if (passcode === ADMIN_PASSCODE) {
     const cookieStore = await cookies();
     cookieStore.set("admin_token", "authenticated", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24, // 1 day
+      maxAge: 60 * 60 * 24,
+      path: "/",
+    });
+    redirect("/admin");
+  } else if (passcode === VIEWER_PASSCODE) {
+    const cookieStore = await cookies();
+    cookieStore.set("admin_token", "viewer", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24,
       path: "/",
     });
     redirect("/admin");
@@ -39,11 +60,8 @@ export async function getAdminEchoes(
   sortBy: "created_at" | "view_count" | "resonance_count" | "remaining_views" = "created_at",
   sortDir: "asc" | "desc" = "desc"
 ) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_token");
-  if (token?.value !== "authenticated") {
-    throw new Error("Unauthorized");
-  }
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
 
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -88,11 +106,8 @@ export async function getAdminEchoes(
 }
 
 export async function getAdminStats() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_token");
-  if (token?.value !== "authenticated") {
-    throw new Error("Unauthorized");
-  }
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
 
   // 本日（JST）の開始時刻を UTC で算出
   const now = new Date();
@@ -132,11 +147,9 @@ export async function getAdminStats() {
 }
 
 export async function deleteAdminEcho(id: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_token");
-  if (token?.value !== "authenticated") {
-    throw new Error("Unauthorized");
-  }
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("この操作には管理者権限が必要です");
 
   const { error } = await supabase.from("echoes").delete().eq("id", id);
   if (error) {
