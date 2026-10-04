@@ -117,9 +117,9 @@ export async function getAdminStats() {
     Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate()) - jstOffset
   );
 
-  const [totalResult, todayResult, resonanceResult, reportedResult, promotedResult] = await Promise.all([
-    // 総投稿数 & アクティブ残響数（= 総投稿数、消滅済みは DB から削除済みのため）
-    supabase.from("echoes").select("id", { count: "exact", head: true }),
+  const [totalResult, todayResult, resonanceResult, reportedResult, promotedResult, activeResult] = await Promise.all([
+    // 累計投稿数（消滅済みも含む）→ echo_stats カウンターから取得
+    supabase.from("echo_stats").select("value").eq("key", "total_echo_count").single(),
     // 本日の投稿数
     supabase
       .from("echoes")
@@ -131,9 +131,11 @@ export async function getAdminStats() {
     supabase.from("echoes").select("id", { count: "exact", head: true }).gt("report_count", 0),
     // プロモーション中の投稿数 (is_promoted = true)
     supabase.from("echoes").select("id", { count: "exact", head: true }).eq("is_promoted", true),
+    // アクティブ数（現在DBに存在する件数）
+    supabase.from("echoes").select("id", { count: "exact", head: true }),
   ]);
 
-  if (totalResult.error || todayResult.error || resonanceResult.error) {
+  if (todayResult.error || resonanceResult.error) {
     throw new Error("統計データの取得に失敗しました");
   }
 
@@ -143,10 +145,10 @@ export async function getAdminStats() {
   );
 
   return {
-    totalCount: totalResult.count ?? 0,
+    totalCount: (totalResult.data?.value as number) ?? 0, // 累計（消滅済み含む）
     todayCount: todayResult.count ?? 0,
     totalResonance,
-    activeCount: totalResult.count ?? 0, // 消滅済みは物理削除されるため現存数 = アクティブ数
+    activeCount: activeResult.count ?? 0, // 現在DBに存在する件数
     reportedCount: reportedResult.count ?? 0,
     promotedCount: promotedResult.count ?? 0,
   };
@@ -209,6 +211,9 @@ export async function createAdminEcho(content: string, mode: "bubble" | "will") 
     console.error("Error creating echo:", error);
     throw new Error("投稿の作成に失敗しました");
   }
+
+  // 累計投稿数カウンターをインクリメント
+  await supabase.rpc("increment_echo_stats");
 
   return { success: true, data };
 }

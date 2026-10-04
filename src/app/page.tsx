@@ -333,6 +333,8 @@ function HomeContent() {
       if (data && data.length > 0) {
         const newEcho = data[0];
         saveMyEcho(newEcho.id, newEcho.content, formMode, newEcho.created_at);
+        // 累計投稿数カウンターをインクリメント
+        await supabase.rpc("increment_echo_stats");
       }
 
       setShowForm(false);

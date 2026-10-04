@@ -208,3 +208,36 @@ update echoes
 set max_views = greatest(view_count + 1, max_views - 400)
 where mode = 'will'
   and max_views >= 500;
+
+-- =============================================
+-- 累計投稿数カウンター (echo_stats)
+-- 物理削除される投稿の累計を追跡するためのテーブル
+-- =============================================
+
+create table if not exists echo_stats (
+  key text primary key,
+  value bigint default 0 not null
+);
+
+-- 初期レコードを挿入（なければ）
+insert into echo_stats (key, value)
+values ('total_echo_count', 0)
+on conflict (key) do nothing;
+
+-- RLS
+alter table echo_stats enable row level security;
+create policy "Allow public read access"  on echo_stats for select using (true);
+create policy "Allow public update access" on echo_stats for update using (true);
+
+-- 累計カウンターをインクリメントする関数
+create or replace function increment_echo_stats()
+returns void as $$
+begin
+  update echo_stats
+  set value = value + 1
+  where key = 'total_echo_count';
+end;
+$$ language plpgsql;
+
+-- 既存の投稿数で累計カウンターを初期化するSQL（初回のみ実行）
+-- update echo_stats set value = (select count(*) from echoes) where key = 'total_echo_count';
