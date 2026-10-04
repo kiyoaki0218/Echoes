@@ -1,4 +1,4 @@
-﻿-- テーブル定義
+-- テーブル定義
 create table echoes (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -6,7 +6,8 @@ create table echoes (
   mode text not null check (mode in ('bubble', 'will')),
   view_count integer default 0 not null,
   max_views integer not null,
-  resonance_count integer default 0 not null
+  resonance_count integer default 0 not null,
+  report_count integer default 0 not null
 );
 
 -- RLS (Row Level Security) の設定
@@ -89,6 +90,28 @@ begin
     'status', 'success',
     'resonance_count', updated_rec.resonance_count,
     'max_views', updated_rec.max_views
+  );
+end;
+$$ language plpgsql;
+
+-- 通報する関数 (report_count + 1)
+create or replace function report_post(post_id uuid)
+returns json as $$
+declare
+  updated_rec record;
+begin
+  update echoes
+  set report_count = report_count + 1
+  where id = post_id
+  returning report_count into updated_rec;
+
+  if not found then
+    return json_build_object('status', 'not_found');
+  end if;
+
+  return json_build_object(
+    'status', 'success',
+    'report_count', updated_rec.report_count
   );
 end;
 $$ language plpgsql;

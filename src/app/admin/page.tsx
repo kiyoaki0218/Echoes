@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport } from "@/app/actions/admin";
 import {
   Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
   Zap, Search, X, Menu, ExternalLink,
-  ArrowUpDown, ArrowUp, ArrowDown,
+  ArrowUpDown, ArrowUp, ArrowDown, Flag, RotateCcw, ShieldAlert,
 } from "lucide-react";
 
 type Echo = {
@@ -17,9 +17,10 @@ type Echo = {
   view_count: number;
   max_views: number;
   resonance_count: number;
+  report_count?: number;
 };
 
-type SortBy = "created_at" | "view_count" | "resonance_count" | "remaining_views";
+type SortBy = "created_at" | "view_count" | "resonance_count" | "remaining_views" | "report_count";
 type SortDir = "asc" | "desc";
 type AdminRole = "admin" | "viewer";
 
@@ -30,6 +31,7 @@ const SORT_LABELS: Record<SortBy, string> = {
   view_count:      "閲覧数",
   resonance_count: "共鳴数",
   remaining_views: "残り回数",
+  report_count:    "通報数",
 };
 
 export default function AdminDashboard() {
@@ -61,7 +63,7 @@ export default function AdminDashboard() {
 
   const isFiltered = appliedKeyword || appliedDateFrom || appliedDateTo;
 
-  type Stats = { totalCount: number; todayCount: number; totalResonance: number; activeCount: number };
+  type Stats = { totalCount: number; todayCount: number; totalResonance: number; activeCount: number; reportedCount?: number };
   const [stats, setStats] = useState<Stats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -148,7 +150,21 @@ export default function AdminDashboard() {
       await deleteAdminEcho(id);
       setEchoes(prev => prev.filter(e => e.id !== id));
       setTotalCount(prev => prev - 1);
+      fetchStats();
     } catch (err: any) { alert(err.message || "削除に失敗しました"); }
+  };
+
+  const handleResetReport = async (id: string) => {
+    if (role !== "admin") {
+      alert("通報のリセットは管理者権限(admin)のみ可能です。");
+      return;
+    }
+    if (!confirm("この投稿の通報カウントを 0 にリセットしますか？")) return;
+    try {
+      await resetAdminReport(id);
+      setEchoes(prev => prev.map(e => e.id === id ? { ...e, report_count: 0 } : e));
+      fetchStats();
+    } catch (err: any) { alert(err.message || "通報リセットに失敗しました"); }
   };
 
   const toggleExpand = (id: string) => {
@@ -166,6 +182,32 @@ export default function AdminDashboard() {
     else if (currentPage >= totalPages - 3) pages.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
     else pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
     return pages;
+  };
+
+  const renderPagination = (marginClass: string = "my-4") => {
+    if (totalPages <= 1) return null;
+    return (
+      <div className={`flex items-center justify-center gap-1 font-sans ${marginClass}`}>
+        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+          className="p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        {getPageNumbers().map((page, i) =>
+          page === "..." ? (
+            <span key={`e-${i}`} className="px-2 text-neutral-600 select-none">…</span>
+          ) : (
+            <button key={page} onClick={() => setCurrentPage(page as number)}
+              className={`min-w-[36px] h-9 px-2 rounded-lg text-sm transition-colors ${currentPage === page ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"}`}>
+              {page}
+            </button>
+          )
+        )}
+        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+          className="p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
   };
 
   const modeBadge = (mode: string) =>
@@ -230,12 +272,13 @@ export default function AdminDashboard() {
         </header>
 
         {/* ===== サマリーカード ===== */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
           {[
             { label: "本日の投稿数", value: stats?.todayCount,     icon: <Zap className="w-4 h-4" />,      color: "text-yellow-400",  bg: "bg-yellow-950/20 border-yellow-900/30" },
             { label: "総投稿数",     value: stats?.totalCount,     icon: <FileText className="w-4 h-4" />, color: "text-blue-400",    bg: "bg-blue-950/20 border-blue-900/30" },
             { label: "総共鳴数",     value: stats?.totalResonance, icon: <Heart className="w-4 h-4" />,    color: "text-red-400",     bg: "bg-red-950/20 border-red-900/30" },
             { label: "アクティブ",   value: stats?.activeCount,    icon: <BarChart2 className="w-4 h-4" />,color: "text-emerald-400", bg: "bg-emerald-950/20 border-emerald-900/30" },
+            { label: "通報投稿",     value: stats?.reportedCount,  icon: <ShieldAlert className="w-4 h-4" />,color: "text-rose-400",    bg: "bg-rose-950/20 border-rose-900/30" },
           ].map(({ label, value, icon, color, bg }) => (
             <div key={label} className={`border rounded-xl p-3 md:p-4 flex flex-col gap-2 md:gap-3 ${bg}`}>
               <div className={`flex items-center gap-1.5 text-[11px] md:text-xs font-sans font-medium tracking-wider ${color}`}>
@@ -347,6 +390,9 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
+            {/* 上部ページネーション */}
+            {renderPagination("mb-4")}
+
             {/* ===== デスクトップ: テーブル ===== */}
             <div className="hidden md:block bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden font-sans">
               <div className="overflow-x-auto">
@@ -359,57 +405,78 @@ export default function AdminDashboard() {
                       <SortTh col="view_count" className="text-right">閲覧数</SortTh>
                       <SortTh col="remaining_views" className="text-right">残り</SortTh>
                       <SortTh col="resonance_count" className="text-right">共鳴数</SortTh>
+                      <SortTh col="report_count" className="text-right">通報数</SortTh>
                       <th className="px-6 py-4 font-medium whitespace-nowrap text-center">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-800">
-                    {echoes.map(echo => (
-                      <tr key={echo.id} className="hover:bg-neutral-800/30 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-neutral-400 text-xs">
-                          {new Date(echo.created_at).toLocaleString("ja-JP")}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
-                        </td>
-                        <td className="px-6 py-4 text-neutral-300">
-                          <div className={`max-w-xl font-serif whitespace-pre-wrap ${!expandedIds.has(echo.id) && echo.mode === "will" ? "line-clamp-2" : ""}`}>
-                            {echo.content}
-                          </div>
-                          {echo.mode === "will" && (
-                            <button onClick={() => toggleExpand(echo.id)} className="mt-2 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans">
-                              {expandedIds.has(echo.id) ? <><ChevronUp className="w-3 h-3" />折りたたむ</> : <><ChevronDown className="w-3 h-3" />すべて表示</>}
-                            </button>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
-                          {echo.view_count} / {echo.max_views}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-right font-sans text-xs ${Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : "text-neutral-400"}`}>
-                          {Math.max(0, echo.max_views - echo.view_count)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
-                          {echo.resonance_count}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <a href={`/?echo=${echo.id}`} target="_blank" rel="noopener noreferrer"
-                              className="p-2 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                            {role === "admin" ? (
-                              <button onClick={() => handleDelete(echo.id)}
-                                className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
-                                <Trash2 className="w-4 h-4" />
+                    {echoes.map(echo => {
+                      const isReported = (echo.report_count ?? 0) > 0;
+                      return (
+                        <tr key={echo.id} className={isReported ? "bg-rose-950/25 hover:bg-rose-950/40 transition-colors border-l-2 border-l-rose-500" : "hover:bg-neutral-800/30 transition-colors"}>
+                          <td className="px-6 py-4 whitespace-nowrap text-neutral-400 text-xs">
+                            {new Date(echo.created_at).toLocaleString("ja-JP")}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
+                              {isReported && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-950/80 border border-rose-800/60 text-rose-300 font-sans flex items-center gap-0.5" title={`${echo.report_count}件の通報`}>
+                                  <Flag className="w-2.5 h-2.5" />
+                                  {echo.report_count}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-neutral-300">
+                            <div className={`max-w-xl font-serif whitespace-pre-wrap ${!expandedIds.has(echo.id) && echo.mode === "will" ? "line-clamp-2" : ""}`}>
+                              {echo.content}
+                            </div>
+                            {echo.mode === "will" && (
+                              <button onClick={() => toggleExpand(echo.id)} className="mt-2 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans">
+                                {expandedIds.has(echo.id) ? <><ChevronUp className="w-3 h-3" />折りたたむ</> : <><ChevronDown className="w-3 h-3" />すべて表示</>}
                               </button>
-                            ) : (
-                              <span className="p-2 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
-                                <Trash2 className="w-4 h-4" />
-                              </span>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
+                            {echo.view_count} / {echo.max_views}
+                          </td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-right font-sans text-xs ${Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : "text-neutral-400"}`}>
+                            {Math.max(0, echo.max_views - echo.view_count)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
+                            {echo.resonance_count}
+                          </td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-right font-sans text-xs ${isReported ? "text-rose-400 font-medium" : "text-neutral-500"}`}>
+                            {echo.report_count ?? 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <a href={`/?echo=${echo.id}`} target="_blank" rel="noopener noreferrer"
+                                className="p-2 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                              {isReported && role === "admin" && (
+                                <button onClick={() => handleResetReport(echo.id)}
+                                  className="p-2 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg transition-colors" title="通報カウントを0にリセット">
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              )}
+                              {role === "admin" ? (
+                                <button onClick={() => handleDelete(echo.id)}
+                                  className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <span className="p-2 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
+                                  <Trash2 className="w-4 h-4" />
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -417,77 +484,78 @@ export default function AdminDashboard() {
 
             {/* ===== モバイル: カード ===== */}
             <div className="md:hidden space-y-3 font-sans">
-              {echoes.map(echo => (
-                <div key={echo.id} className="bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden">
-                  <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-neutral-800/50">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
-                      <span className="text-[11px] text-neutral-500 truncate">{new Date(echo.created_at).toLocaleString("ja-JP")}</span>
+              {echoes.map(echo => {
+                const isReported = (echo.report_count ?? 0) > 0;
+                return (
+                  <div key={echo.id} className={`rounded-xl overflow-hidden border ${isReported ? "bg-rose-950/20 border-rose-900/40" : "bg-neutral-900/50 border-neutral-800"}`}>
+                    <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-neutral-800/50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
+                        {isReported && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-950/80 border border-rose-800/60 text-rose-300 flex items-center gap-0.5">
+                            <Flag className="w-2.5 h-2.5" />
+                            {echo.report_count}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-neutral-500 truncate">{new Date(echo.created_at).toLocaleString("ja-JP")}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <a href={`/?echo=${echo.id}`} target="_blank" rel="noopener noreferrer"
+                          className="p-1.5 text-neutral-600 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                        {isReported && role === "admin" && (
+                          <button onClick={() => handleResetReport(echo.id)}
+                            className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg transition-colors" title="通報カウントを0にリセット">
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                        )}
+                        {role === "admin" ? (
+                          <button onClick={() => handleDelete(echo.id)}
+                            className="p-1.5 text-neutral-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <span className="p-1.5 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
+                            <Trash2 className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <a href={`/?echo=${echo.id}`} target="_blank" rel="noopener noreferrer"
-                        className="p-1.5 text-neutral-600 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                      {role === "admin" ? (
-                        <button onClick={() => handleDelete(echo.id)}
-                          className="p-1.5 text-neutral-600 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
-                          <Trash2 className="w-4 h-4" />
+                    <div className="px-4 py-3">
+                      <p className={`text-sm text-neutral-300 font-serif whitespace-pre-wrap leading-relaxed ${!expandedIds.has(echo.id) && echo.mode === "will" ? "line-clamp-3" : ""}`}>
+                        {echo.content}
+                      </p>
+                      {echo.mode === "will" && (
+                        <button onClick={() => toggleExpand(echo.id)} className="mt-1.5 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">
+                          {expandedIds.has(echo.id) ? <><ChevronUp className="w-3 h-3" />折りたたむ</> : <><ChevronDown className="w-3 h-3" />すべて表示</>}
                         </button>
-                      ) : (
-                        <span className="p-1.5 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
-                          <Trash2 className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="px-4 pb-3 flex items-center justify-between text-[11px] text-neutral-500">
+                      <div className="flex items-center gap-3">
+                        <span>閲覧: <strong className="text-neutral-300">{echo.view_count}</strong> / {echo.max_views}</span>
+                        <span className={Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : ""}>
+                          残り: <strong>{Math.max(0, echo.max_views - echo.view_count)}</strong>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Heart className="w-3 h-3 text-red-500/60" />
+                          <strong className="text-neutral-300">{echo.resonance_count}</strong>
+                        </span>
+                      </div>
+                      {isReported && (
+                        <span className="text-rose-400 font-medium flex items-center gap-0.5">
+                          通報: {echo.report_count}件
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="px-4 py-3">
-                    <p className={`text-sm text-neutral-300 font-serif whitespace-pre-wrap leading-relaxed ${!expandedIds.has(echo.id) && echo.mode === "will" ? "line-clamp-3" : ""}`}>
-                      {echo.content}
-                    </p>
-                    {echo.mode === "will" && (
-                      <button onClick={() => toggleExpand(echo.id)} className="mt-1.5 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">
-                        {expandedIds.has(echo.id) ? <><ChevronUp className="w-3 h-3" />折りたたむ</> : <><ChevronDown className="w-3 h-3" />すべて表示</>}
-                      </button>
-                    )}
-                  </div>
-                  <div className="px-4 pb-3 flex items-center gap-4 text-[11px] text-neutral-500">
-                    <span>閲覧: <strong className="text-neutral-300">{echo.view_count}</strong> / {echo.max_views}</span>
-                    <span className={Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : ""}>
-                      残り: <strong>{Math.max(0, echo.max_views - echo.view_count)}</strong>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Heart className="w-3 h-3 text-red-500/60" />
-                      <strong className="text-neutral-300">{echo.resonance_count}</strong>
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* ===== ページネーション ===== */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-1 mt-6 font-sans">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                  className="p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {getPageNumbers().map((page, i) =>
-                  page === "..." ? (
-                    <span key={`e-${i}`} className="px-2 text-neutral-600 select-none">…</span>
-                  ) : (
-                    <button key={page} onClick={() => setCurrentPage(page as number)}
-                      className={`min-w-[36px] h-9 px-2 rounded-lg text-sm transition-colors ${currentPage === page ? "bg-neutral-700 text-neutral-100 font-medium" : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"}`}>
-                      {page}
-                    </button>
-                  )
-                )}
-                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            {/* 下部ページネーション */}
+            {renderPagination("mt-6")}
           </>
         )}
       </div>

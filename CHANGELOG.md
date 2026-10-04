@@ -1,4 +1,4 @@
-﻿# Echoes 残響 - 更新実績・変更履歴 (CHANGELOG)
+# Echoes 残響 - 更新実績・変更履歴 (CHANGELOG)
 
 このドキュメントは、これまでに実施したプログラムの具体的な編集内容、編集箇所、および更新実績を記録するためのものです。
 今後は未実装タスクを管理する `TODO.md`（更新予定）とセットで更新・運用を行います。
@@ -6,6 +6,29 @@
 ---
 
 ## 📜 更新履歴一覧
+
+### 📅 2026-10-04 (9回目)
+#### 7. 一般ユーザーからの「通報」機能 ＆ ダッシュボード連動
+- **編集箇所**:
+  - `supabase.sql`
+  - `src/app/page.tsx`
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - メイン画面の投稿UIにおいて、共鳴ボタンの横に通報ボタンを「小さく」配置。
+  - 通報は `localStorage`（`reported_echoes`）を使用して1投稿につき1ブラウザ1回のみに制限。
+  - 通報発生時にDBの `report_count` カラムをインクリメント。
+  - ダッシュボード（管理画面）に「通報投稿」サマリーカードを追加し、通報された投稿（`report_count > 0`）を警告ハイライト表示（ローズ色背景・枠線および通報バッジ表示）。
+  - ダッシュボードのソート項目に「通報数」を追加。
+  - ダッシュボードで管理者権限（`admin`）を持つユーザーのみ通報カウントを0にリセットできるボタン（`RotateCcw`）を追加（`viewer` ロールではリセット不可）。
+  - ダッシュボードの表示ページ切り替え（ページネーションボタン）を下部だけでなく上部付近にも配置。
+- **具体的なプログラムの編集内容**:
+  - `supabase.sql`: `echoes` テーブルに `report_count` (integer, default 0, not null) カラムを追加。通報インクリメント関数 `report_post` RPCを追加。
+  - `src/app/page.tsx`: `Echo` 型に `is_reported?: boolean` を対応。`getReportedIds` / `saveReportedIds` ヘルパー関数と `reportedIds` / `reportLoading` state を追加。RPC `report_post` を実行する `handleReport` ハンドラーを追加。メイン表示UIの共鳴ボタン横に通報ボタン（`Flag` アイコン、通報済み非活性表示）を小さく追加。
+  - `src/app/actions/admin.ts`: `getAdminEchoes` の `sortBy` 型に `"report_count"` を追加。`getAdminStats` で通報投稿数 `reportedCount` の集計を追加。管理者専用アクション `resetAdminReport(id)` を追加（`role !== "admin"` の場合に拒否）。
+  - `src/app/admin/page.tsx`: インポートに `resetAdminReport` および `Flag`, `RotateCcw`, `ShieldAlert` を追加。`Echo` 型・`SortBy` 型・`SORT_LABELS` に通報数を追加。`handleResetReport` ハンドラーを追加。サマリーカードに通報投稿集計カードを追加。上部および下部に `renderPagination` を配置。テーブル・モバイルカードで通報件数がある場合に警告ハイライトと通報件数バッジ、および管理者向け通報リセットボタンを表示。
 
 ### 📅 2026-09-23 (8回目)
 #### 6. 閲覧専用（ビューアー）権限の追加

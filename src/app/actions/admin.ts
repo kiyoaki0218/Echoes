@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -57,7 +57,7 @@ export async function getAdminEchoes(
   keyword: string = "",
   dateFrom: string = "",
   dateTo: string = "",
-  sortBy: "created_at" | "view_count" | "resonance_count" | "remaining_views" = "created_at",
+  sortBy: "created_at" | "view_count" | "resonance_count" | "remaining_views" | "report_count" = "created_at",
   sortDir: "asc" | "desc" = "desc"
 ) {
   const role = await getAdminRole();
@@ -117,7 +117,7 @@ export async function getAdminStats() {
     Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate()) - jstOffset
   );
 
-  const [totalResult, todayResult, resonanceResult] = await Promise.all([
+  const [totalResult, todayResult, resonanceResult, reportedResult] = await Promise.all([
     // 総投稿数 & アクティブ残響数（= 総投稿数、消滅済みは DB から削除済みのため）
     supabase.from("echoes").select("id", { count: "exact", head: true }),
     // 本日の投稿数
@@ -127,6 +127,8 @@ export async function getAdminStats() {
       .gte("created_at", todayJstStart.toISOString()),
     // 総共鳴数
     supabase.from("echoes").select("resonance_count"),
+    // 通報された投稿数 (report_count > 0)
+    supabase.from("echoes").select("id", { count: "exact", head: true }).gt("report_count", 0),
   ]);
 
   if (totalResult.error || todayResult.error || resonanceResult.error) {
@@ -143,6 +145,7 @@ export async function getAdminStats() {
     todayCount: todayResult.count ?? 0,
     totalResonance,
     activeCount: totalResult.count ?? 0, // 消滅済みは物理削除されるため現存数 = アクティブ数
+    reportedCount: reportedResult.count ?? 0,
   };
 }
 
@@ -157,5 +160,23 @@ export async function deleteAdminEcho(id: string) {
     throw new Error("削除に失敗しました");
   }
   
+  return { success: true };
+}
+
+export async function resetAdminReport(id: string) {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+  if (role !== "admin") throw new Error("通報のリセットは管理者権限(admin)が必要です");
+
+  const { error } = await supabase
+    .from("echoes")
+    .update({ report_count: 0 })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error resetting report count:", error);
+    throw new Error("通報カウントのリセットに失敗しました");
+  }
+
   return { success: true };
 }

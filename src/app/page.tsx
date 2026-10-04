@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search } from "lucide-react";
+import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag } from "lucide-react";
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
@@ -16,6 +16,7 @@ interface Echo {
   view_count: number;
   max_views: number;
   resonance_count: number;
+  is_reported: boolean;
   created_at: string;
 }
 
@@ -42,6 +43,19 @@ function saveResonatedIds(ids: Set<string>) {
   localStorage.setItem("resonated_echoes", JSON.stringify([...ids]));
 }
 
+// LocalStorageから通報済みIDセット取得
+function getReportedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const saved = localStorage.getItem("reported_echoes");
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  } catch { return new Set(); }
+}
+
+function saveReportedIds(ids: Set<string>) {
+  localStorage.setItem("reported_echoes", JSON.stringify([...ids]));
+}
+
 function HomeContent() {
   const searchParams = useSearchParams();
   const echoIdFromUrl = searchParams.get("echo");
@@ -49,9 +63,11 @@ function HomeContent() {
   const [currentEcho, setCurrentEcho] = useState<Echo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [resonateLoading, setResonateLoading] = useState<boolean>(false);
+  const [reportLoading, setReportLoading] = useState<boolean>(false);
   const [fade, setFade] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resonatedIds, setResonatedIds] = useState<Set<string>>(new Set());
+  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
 
   const [showForm, setShowForm] = useState<boolean>(false);
   const [inputContent, setInputContent] = useState<string>("");
@@ -212,6 +228,37 @@ function HomeContent() {
     }
   };
 
+  const handleReport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentEcho || reportLoading) return;
+
+    if (reportedIds.has(currentEcho.id)) {
+      alert("この投稿は既に通報済みです。");
+      return;
+    }
+
+    if (!confirm("この投稿を不適切なコンテンツとして通報しますか？")) return;
+
+    try {
+      setReportLoading(true);
+      const { data, error } = await supabase.rpc("report_post", { post_id: currentEcho.id });
+      if (error) throw error;
+
+      if (data && data.status === "success") {
+        const newIds = new Set(reportedIds);
+        newIds.add(currentEcho.id);
+        setReportedIds(newIds);
+        saveReportedIds(newIds);
+        alert("投稿を通報しました。管理者へ報告されます。");
+      }
+    } catch (err: unknown) {
+      console.error("Error reporting post:", err);
+      alert("通報に失敗しました。");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const openForm = () => {
     setInputContent("");
     if (mode === "bubble") {
@@ -358,6 +405,7 @@ function HomeContent() {
 
   useEffect(() => {
     setResonatedIds(getResonatedIds());
+    setReportedIds(getReportedIds());
     fetchMyEchoesStatus();
     if (echoIdFromUrl) {
       // URL に ?echo=<id> がある場合はその投稿を直接取得（閲覧カウントはインクリメントしない）
@@ -401,6 +449,7 @@ function HomeContent() {
   };
 
   const isResonated = currentEcho ? resonatedIds.has(currentEcho.id) : false;
+  const isReported = currentEcho ? reportedIds.has(currentEcho.id) : false;
 
   // タブ・検索・日時フィルターで絞り込んだリスト
   const filteredMyEchoes = myEchoes.filter(e => {
@@ -478,7 +527,7 @@ function HomeContent() {
                 </div>
               </div>
 
-              <div className="mt-4 sm:mt-6 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="mt-4 sm:mt-6 shrink-0 flex items-center justify-center gap-2 sm:gap-3" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={handleResonate}
                   disabled={resonateLoading}
@@ -490,6 +539,19 @@ function HomeContent() {
                 >
                   <Heart className={`w-3.5 h-3.5 transition-transform group-hover:scale-125 ${isResonated ? "fill-red-500 text-red-500" : ""}`} />
                   <span>{isResonated ? `共鳴済み (${currentEcho.resonance_count})` : `共鳴する (${currentEcho.resonance_count})`}</span>
+                </button>
+                <button
+                  onClick={handleReport}
+                  disabled={isReported || reportLoading}
+                  title={isReported ? "通報済みです" : "不適切な投稿を通報"}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 border rounded-full text-[10px] sm:text-xs font-sans tracking-wider transition-all duration-300 ${
+                    isReported
+                      ? "bg-neutral-900/40 border-neutral-800/40 text-neutral-600 cursor-not-allowed"
+                      : "bg-neutral-900/60 hover:bg-neutral-800/80 border-neutral-800/80 text-neutral-500 hover:text-red-400 hover:border-red-900/50 active:scale-95"
+                  }`}
+                >
+                  <Flag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span>{isReported ? "通報済み" : "通報"}</span>
                 </button>
               </div>
             </div>
