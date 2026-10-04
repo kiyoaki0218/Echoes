@@ -89,6 +89,7 @@ function HomeContent() {
   // 公式お知らせ
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [annIndex, setAnnIndex] = useState(0); // 複数ある場合のカルーセル位置
+  const [annExpanded, setAnnExpanded] = useState(false); // 展開/折りたたみ
 
   const maxChars = formMode === "bubble" ? 60 : 800;
 
@@ -535,44 +536,83 @@ function HomeContent() {
       </header>
 
       {/* 公式お知らせバナー */}
+      {/* 公式お知らせバナー */}
       {announcements.length > 0 && (
         <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 z-10 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <div className="relative bg-neutral-900/70 border border-neutral-700/60 rounded-xl px-4 py-3 flex items-start gap-3 backdrop-blur-sm">
-            {/* 公式バッジ */}
-            <span className="flex items-center gap-1 shrink-0 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium bg-amber-950/50 border border-amber-700/50 text-amber-400 whitespace-nowrap">
-              <Megaphone className="w-3 h-3" />
-              公式
-            </span>
-            {/* 本文 */}
-            <div className="flex-1 min-w-0">
-              {announcements[annIndex].title && (
-                <p className="text-xs font-sans font-medium text-neutral-200 mb-0.5 truncate flex items-center gap-1.5">
-                  {announcements[annIndex].is_pinned && <Pin className="w-3 h-3 text-amber-400 shrink-0" />}
-                  {announcements[annIndex].title}
+          <div className="bg-neutral-900/70 border border-neutral-700/60 rounded-xl backdrop-blur-sm overflow-hidden">
+
+            {/* ヘッダー行（常に表示・タップで展開切り替え） */}
+            <button
+              className="w-full flex items-center gap-3 px-4 py-3 text-left"
+              onClick={() => setAnnExpanded(v => !v)}
+            >
+              {/* 公式バッジ */}
+              <span className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium bg-amber-950/50 border border-amber-700/50 text-amber-400 whitespace-nowrap">
+                <Megaphone className="w-3 h-3" />
+                公式
+              </span>
+
+              {/* タイトル（常に表示、1行で切り捨て） */}
+              <span className="flex-1 min-w-0 flex items-center gap-1.5 text-xs font-sans font-medium text-neutral-200 truncate">
+                {announcements[annIndex].is_pinned && <Pin className="w-3 h-3 text-amber-400 shrink-0" />}
+                <span className="truncate">
+                  {announcements[annIndex].title || announcements[annIndex].content}
+                </span>
+              </span>
+
+              {/* 右端：複数件ナビ ＋ 展開アイコン */}
+              <div className="flex items-center gap-1 shrink-0">
+                {announcements.length > 1 && !annExpanded && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setAnnIndex(i => (i - 1 + announcements.length) % announcements.length); }}
+                      className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[10px] text-neutral-600 font-sans tabular-nums">{annIndex + 1}/{announcements.length}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setAnnIndex(i => (i + 1) % announcements.length); }}
+                      className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+                <ChevronDown className={`w-3.5 h-3.5 text-neutral-500 transition-transform duration-200 ${annExpanded ? "rotate-180" : ""}`} />
+              </div>
+            </button>
+
+            {/* 展開時の本文エリア */}
+            {annExpanded && (
+              <div className="px-4 pb-4 flex flex-col gap-3 border-t border-neutral-800/60">
+                <p className="text-xs sm:text-sm font-sans text-neutral-300 leading-relaxed whitespace-pre-wrap pt-3">
+                  {announcements[annIndex].content}
                 </p>
-              )}
-              <p className="text-[11px] sm:text-xs font-sans text-neutral-400 leading-relaxed line-clamp-2">
-                {announcements[annIndex].content}
-              </p>
-            </div>
-            {/* 複数ある場合のナビゲーション */}
-            {announcements.length > 1 && (
-              <div className="flex items-center gap-1 shrink-0 self-center">
-                <button
-                  onClick={() => setAnnIndex(i => (i - 1 + announcements.length) % announcements.length)}
-                  className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-[10px] text-neutral-600 font-sans tabular-nums">{annIndex + 1}/{announcements.length}</span>
-                <button
-                  onClick={() => setAnnIndex(i => (i + 1) % announcements.length)}
-                  className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+
+                {/* 複数件ある場合のナビゲーション（展開時） */}
+                {announcements.length > 1 && (
+                  <div className="flex items-center justify-between pt-1 border-t border-neutral-800/40">
+                    <button
+                      onClick={() => setAnnIndex(i => (i - 1 + announcements.length) % announcements.length)}
+                      className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      前のお知らせ
+                    </button>
+                    <span className="text-[11px] text-neutral-600 font-sans tabular-nums">{annIndex + 1} / {announcements.length}</span>
+                    <button
+                      onClick={() => setAnnIndex(i => (i + 1) % announcements.length)}
+                      className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans"
+                    >
+                      次のお知らせ
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
+
           </div>
         </div>
       )}
