@@ -241,19 +241,51 @@ function HomeContent() {
 
     try {
       setReportLoading(true);
-      const { data, error } = await supabase.rpc("report_post", { post_id: currentEcho.id });
-      if (error) throw error;
+      let success = false;
 
-      if (data && data.status === "success") {
+      // 1. まず RPC report_post を試行
+      const { data, error: rpcError } = await supabase.rpc("report_post", { post_id: currentEcho.id });
+
+      if (!rpcError && data && data.status === "success") {
+        success = true;
+      } else {
+        // 2. RPCが未適用または失敗した場合は直接 update (report_count + 1) を試行
+        const currentReportCount = (currentEcho as any).report_count ?? 0;
+        const { error: updateError } = await supabase
+          .from("echoes")
+          .update({ report_count: currentReportCount + 1 })
+          .eq("id", currentEcho.id);
+
+        if (!updateError) {
+          success = true;
+        } else {
+          // 3. カラム未作成等の場合の代替 update (is_reported)
+          const { error: fallbackError } = await supabase
+            .from("echoes")
+            .update({ is_reported: true })
+            .eq("id", currentEcho.id);
+
+          if (!fallbackError) {
+            success = true;
+          } else {
+            console.error("RPC Error:", rpcError);
+            console.error("Update Error:", updateError);
+            console.error("Fallback Error:", fallbackError);
+            throw updateError || rpcError || fallbackError;
+          }
+        }
+      }
+
+      if (success) {
         const newIds = new Set(reportedIds);
         newIds.add(currentEcho.id);
         setReportedIds(newIds);
         saveReportedIds(newIds);
         alert("投稿を通報しました。管理者へ報告されます。");
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("Error reporting post:", err);
-      alert("通報に失敗しました。");
+      alert(`通報に失敗しました: ${err?.message || "Supabase DBの設定（supabase.sqlの実行）を確認してください。"}`);
     } finally {
       setReportLoading(false);
     }
