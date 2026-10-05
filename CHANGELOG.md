@@ -1,4 +1,4 @@
-# Echoes 残響 - 更新実績・変更履歴 (CHANGELOG)
+﻿# Echoes 残響 - 更新実績・変更履歴 (CHANGELOG)
 
 このドキュメントは、これまでに実施したプログラムの具体的な編集内容、編集箇所、および更新実績を記録するためのものです。
 今後は未実装タスクを管理する `TODO.md`（更新予定）とセットで更新・運用を行います。
@@ -6,6 +6,25 @@
 ---
 
 ## 📜 更新履歴一覧
+
+### 📅 2026-10-05 (13回目)
+#### 11. URLの自動リンク化 & YouTube等の埋め込み再生 & スマホ版レイアウト見切れ修正
+- **編集箇所**:
+  - `src/app/page.tsx`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - 投稿本文内（メイン画面・公式お知らせ・ダッシュボードのマイ投稿リスト）に含まれる URL (`http://...`, `https://...`) の自動ハイパーリンク化を実装。
+  - URL が YouTube 動画 (watch, shorts, embed, youtu.be) の場合、ハイパーリンク表示に加えてインラインで YouTube 埋め込みプレイヤー (`<iframe>`) をレスポンシブ表示。動画プレイヤーのタップ操作で「次の投稿へ移動」が発生しないようバブリング制御を追加。
+  - スマホ等画面縦幅が狭い環境で、公式お知らせ展開時や長文（遺言モード）表示時に「泡沫/遺言」モードタグや「PR」タグ、投稿本文、操作ボタンが見切れたり隠れたりするレイアウト不具合を解消。
+  - 公式お知らせ展開エリアの縦スクロール上限 (`max-h-36 sm:max-h-48`) の追加と、メイン表示領域におけるフレキシブルスクロール設計により、各種タグおよびボタンが常に画面内に確実に収まる構造に改修。
+- **具体的なプログラムの編集内容**:
+  - `src/app/page.tsx`:
+    - `extractYouTubeId(url: string)` ヘルパー関数を追加。`youtube.com` (watch, shorts, embed) および `youtu.be` の URL から 11 桁の動画 ID を安全に検出・抽出。
+    - `FormattedContent({ content, mode, className })` コンポーネントを追加。正規表現で URL を切り分け、`<a>` タグ (target="_blank", rel="noopener noreferrer", e.stopPropagation()) および YouTube 動画が存在する場合はインライン埋め込みプレイヤー (`<iframe>`) をレンダリング。
+    - 公式お知らせバナー展開発揮時 (`annExpanded`) の表示領域に `max-h-36 sm:max-h-48 overflow-y-auto scrollbar-thin` を付与し、お知らせ内にも `FormattedContent` を適用。
+    - メイン領域 (`<main>`) および `currentEcho` 表示領域のレイアウト構造を `h-full flex flex-col justify-between min-h-0` にリファクタリング。モードタグ (`shrink-0`)、プログレスバー (`shrink-0`)、アクションボタン群 (`shrink-0`) の画面固定と、本文エリアのフレキシブルスクロール化 (`flex-1 overflow-y-auto min-h-0`) により見切れ・重複表示を防ぐレスポンシブ設計を実現。
+    - マイ投稿リスト (ダッシュボードモーダル `isMyListOpen`) 内の投稿一覧でも `FormattedContent` を適用し、マイリスト画面内での URL リンク化 & YouTube 動画再生に対応。
 
 ### 📅 2026-10-04 (12回目)
 #### 10. プロモーション投稿機能

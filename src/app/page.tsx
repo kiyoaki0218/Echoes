@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getActiveAnnouncements, type Announcement } from "@/app/actions/admin";
@@ -8,6 +8,101 @@ import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
+
+function extractYouTubeId(url: string): string | null {
+  try {
+    const cleanUrl = url.replace(/[),;.]+$/, "");
+    const parsed = new URL(cleanUrl);
+    if (parsed.hostname.includes("youtube.com")) {
+      if (parsed.pathname.startsWith("/watch")) {
+        return parsed.searchParams.get("v");
+      }
+      if (parsed.pathname.startsWith("/shorts/")) {
+        return parsed.pathname.split("/")[2] || null;
+      }
+      if (parsed.pathname.startsWith("/embed/")) {
+        return parsed.pathname.split("/")[2] || null;
+      }
+    } else if (parsed.hostname.includes("youtu.be")) {
+      return parsed.pathname.slice(1).split("?")[0] || null;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function FormattedContent({
+  content,
+  mode,
+  className = "",
+}: {
+  content: string;
+  mode?: Mode;
+  className?: string;
+}) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = content.split(urlRegex);
+  const youtubeIds: string[] = [];
+
+  const renderedText = parts.map((part, index) => {
+    if (part.match(/^https?:\/\//)) {
+      const cleanUrl = part.replace(/[),;.]+$/, "");
+      const trailingPunctuation = part.slice(cleanUrl.length);
+      const ytId = extractYouTubeId(cleanUrl);
+      if (ytId && !youtubeIds.includes(ytId)) {
+        youtubeIds.push(ytId);
+      }
+      return (
+        <Fragment key={index}>
+          <a
+            href={cleanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-blue-400 hover:text-blue-300 underline break-all inline-flex items-center gap-1 font-sans font-normal"
+          >
+            {cleanUrl}
+          </a>
+          {trailingPunctuation}
+        </Fragment>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+
+  const textStyle = mode
+    ? mode === "bubble"
+      ? "text-xl sm:text-2xl md:text-3xl tracking-wide font-normal max-w-xl mx-auto text-center"
+      : "text-base sm:text-lg md:text-xl text-left tracking-normal max-w-2xl whitespace-pre-wrap font-light mx-auto"
+    : "whitespace-pre-wrap";
+
+  return (
+    <div className={`w-full ${className}`}>
+      <div className={`text-neutral-200 leading-relaxed font-light ${textStyle}`}>
+        {renderedText}
+      </div>
+      {youtubeIds.map((ytId) => (
+        <div
+          key={ytId}
+          className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}`}
+              title="YouTube video player"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webshare"
+              allowFullScreen
+              className="absolute top-0 left-0 w-full h-full border-0"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type MyListTab = "all" | "bubble" | "will";
 
 interface Echo {
@@ -587,10 +682,11 @@ function HomeContent() {
 
             {/* 展開時の本文エリア */}
             {annExpanded && (
-              <div className="px-4 pb-4 flex flex-col gap-3 border-t border-neutral-800/60">
-                <p className="text-xs sm:text-sm font-sans text-neutral-300 leading-relaxed whitespace-pre-wrap pt-3">
-                  {announcements[annIndex].content}
-                </p>
+              <div className="px-4 pb-4 flex flex-col gap-3 border-t border-neutral-800/60 max-h-36 sm:max-h-48 overflow-y-auto scrollbar-thin">
+                <FormattedContent
+                  content={announcements[annIndex].content}
+                  className="text-xs sm:text-sm font-sans text-neutral-300 leading-relaxed pt-3"
+                />
 
                 {/* 複数件ある場合のナビゲーション（展開時） */}
                 {announcements.length > 1 && (
@@ -620,16 +716,16 @@ function HomeContent() {
       )}
 
       {/* メイン */}
-      <main className="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 max-w-3xl mx-auto w-full z-10 cursor-pointer overflow-hidden py-2">
-        <div className={`w-full transition-opacity duration-300 flex flex-col items-center ${fade ? "opacity-100" : "opacity-0"}`}>
+      <main className="flex-1 flex flex-col justify-between items-center px-4 sm:px-6 max-w-3xl mx-auto w-full z-10 cursor-pointer overflow-hidden py-2 min-h-0">
+        <div className={`w-full h-full transition-opacity duration-300 flex flex-col items-center justify-between min-h-0 ${fade ? "opacity-100" : "opacity-0"}`}>
           {loading ? (
-            <div className="text-neutral-500 text-xs sm:text-sm tracking-widest animate-pulse font-sans">投稿を取得しています...</div>
+            <div className="text-neutral-500 text-xs sm:text-sm tracking-widest animate-pulse font-sans my-auto">投稿を取得しています...</div>
           ) : errorMsg ? (
-            <div className="text-xs sm:text-sm text-center tracking-wide font-sans max-w-md bg-red-950/20 border border-red-900/30 p-4 rounded-xl text-red-400/80">{errorMsg}</div>
+            <div className="text-xs sm:text-sm text-center tracking-wide font-sans max-w-md bg-red-950/20 border border-red-900/30 p-4 rounded-xl text-red-400/80 my-auto">{errorMsg}</div>
           ) : currentEcho ? (
-            <div className="w-full flex flex-col items-center text-center max-h-[70dvh] justify-center">
+            <div className="w-full flex-1 flex flex-col items-center justify-between min-h-0 overflow-hidden py-1">
               {/* モードタグ（泡沫/遺言） */}
-              <div className="mb-3 sm:mb-4 shrink-0 flex items-center justify-center gap-2">
+              <div className="mb-2 sm:mb-3 shrink-0 flex items-center justify-center gap-2">
                 <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-sans border ${currentEcho.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
                   {currentEcho.mode === "bubble" ? "泡沫" : "遺言"}
                 </span>
@@ -641,14 +737,16 @@ function HomeContent() {
                 )}
               </div>
 
-              {/* コンテンツ本文（長文の場合はスマホでスクロール可能に） */}
-              <div className="w-full overflow-y-auto max-h-[35dvh] sm:max-h-[45dvh] px-2 py-1 scrollbar-thin">
-                <p className={`text-neutral-200 leading-relaxed font-light ${currentEcho.mode === "bubble" ? "text-xl sm:text-2xl md:text-3xl tracking-wide font-normal max-w-xl mx-auto" : "text-base sm:text-lg md:text-xl text-left tracking-normal max-w-2xl whitespace-pre-wrap font-light mx-auto"}`}>
-                  {currentEcho.content}
-                </p>
+              {/* コンテンツ本文（URL自動リンク・YouTube埋め込み対応 & フレキシブルスクロール） */}
+              <div className="w-full flex-1 overflow-y-auto min-h-0 px-2 py-1 scrollbar-thin flex items-center">
+                <FormattedContent
+                  content={currentEcho.content}
+                  mode={currentEcho.mode}
+                  className="my-auto"
+                />
               </div>
 
-              <div className="w-full max-w-md mt-6 sm:mt-10 md:mt-14 flex flex-col gap-1.5 sm:gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full max-w-md mt-3 sm:mt-4 flex flex-col gap-1 sm:gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <div className="w-full h-[2px] bg-neutral-900 rounded-full overflow-hidden">
                   <div className="h-full bg-neutral-400 transition-all duration-500 ease-out" style={{ width: `${Math.min(100, (currentEcho.view_count / currentEcho.max_views) * 100)}%` }}></div>
                 </div>
@@ -658,7 +756,7 @@ function HomeContent() {
                 </div>
               </div>
 
-              <div className="mt-4 sm:mt-6 shrink-0 flex items-center justify-center gap-2 sm:gap-3" onClick={(e) => e.stopPropagation()}>
+              <div className="mt-2 sm:mt-3 shrink-0 flex items-center justify-center gap-2 sm:gap-3" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={handleResonate}
                   disabled={resonateLoading}
@@ -694,7 +792,7 @@ function HomeContent() {
           )}
         </div>
         {currentEcho && !loading && !errorMsg && (
-          <div className="mt-4 sm:mt-8 text-[10px] text-neutral-600 font-sans tracking-widest animate-pulse pointer-events-none shrink-0">画面をタップして次の投稿へ</div>
+          <div className="mt-1 sm:mt-2 text-[10px] text-neutral-600 font-sans tracking-widest animate-pulse pointer-events-none shrink-0">画面をタップして次の投稿へ</div>
         )}
       </main>
 
@@ -844,9 +942,9 @@ function HomeContent() {
                         </div>
                         {isLong ? (
                           <>
-                            <p className={`text-xs sm:text-sm text-neutral-300 italic font-light leading-relaxed whitespace-pre-wrap ${!isExpanded ? "line-clamp-3" : ""}`}>
-                              {echo.content}
-                            </p>
+                            <div className={`text-xs sm:text-sm text-neutral-300 italic font-light leading-relaxed ${!isExpanded ? "line-clamp-3" : ""}`}>
+                              <FormattedContent content={echo.content} />
+                            </div>
                             <button
                               onClick={() => toggleExpand(echo.id)}
                               className="mt-1.5 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans"
@@ -855,7 +953,9 @@ function HomeContent() {
                             </button>
                           </>
                         ) : (
-                          <p className="text-xs sm:text-sm text-neutral-300 italic font-light">&ldquo;{echo.content}&rdquo;</p>
+                          <div className="text-xs sm:text-sm text-neutral-300 italic font-light">
+                            <FormattedContent content={echo.content} />
+                          </div>
                         )}
                       </div>
 
