@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
@@ -17,7 +17,19 @@ type MediaEmbedType =
   | { type: "niconico"; id: string }
   | { type: "vimeo"; id: string }
   | { type: "tiktok"; id: string }
-  | { type: "soundcloud"; url: string };
+  | { type: "soundcloud"; url: string }
+  | { type: "twitch"; kind: "video" | "clip"; id: string }
+  | { type: "bilibili"; bvid: string }
+  | { type: "apple_music"; path: string }
+  | { type: "amazon_music"; url: string }
+  | { type: "voicy"; channelId: string; episodeId: string }
+  | { type: "stand_fm"; id: string }
+  | { type: "pinterest"; id: string }
+  | { type: "giphy"; id: string }
+  | { type: "docswell"; id: string }
+  | { type: "codepen"; user: string; id: string }
+  | { type: "figma"; url: string }
+  | { type: "google_maps"; queryUrl: string };
 
 function parseMediaEmbed(url: string): MediaEmbedType | null {
   try {
@@ -25,94 +37,192 @@ function parseMediaEmbed(url: string): MediaEmbedType | null {
     const parsed = new URL(cleanUrl);
     const host = parsed.hostname.toLowerCase();
     const pathname = parsed.pathname;
+    const parts = pathname.split("/").filter(Boolean);
 
-    // YouTube
+    // 1. YouTube
     if (host.includes("youtube.com")) {
       if (pathname.startsWith("/watch")) {
         const v = parsed.searchParams.get("v");
         if (v) return { type: "youtube", id: v };
       }
-      if (pathname.startsWith("/shorts/")) {
-        const id = pathname.split("/")[2];
-        if (id) return { type: "youtube", id };
-      }
-      if (pathname.startsWith("/embed/")) {
-        const id = pathname.split("/")[2];
-        if (id) return { type: "youtube", id };
+      if (pathname.startsWith("/shorts/") || pathname.startsWith("/embed/")) {
+        if (parts[1]) return { type: "youtube", id: parts[1] };
       }
     } else if (host.includes("youtu.be")) {
-      const id = pathname.slice(1).split("?")[0];
+      const id = parts[0]?.split("?")[0];
       if (id) return { type: "youtube", id };
     }
 
-    // Spotify
+    // 2. Spotify (/intl-ja/track/:id など国言語コード修正)
     if (host.includes("spotify.com")) {
-      const parts = pathname.split("/").filter(Boolean);
-      if (parts.length >= 2 && ["track", "album", "playlist", "episode", "show"].includes(parts[0])) {
-        return { type: "spotify", subType: parts[0], id: parts[1] };
+      const types = ["track", "album", "playlist", "episode", "show"];
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (types.includes(parts[i])) {
+          const id = parts[i + 1].split("?")[0];
+          return { type: "spotify", subType: parts[i], id };
+        }
       }
     }
 
-    // X (Twitter)
+    // 3. X (Twitter)
     if (host.includes("x.com") || host.includes("twitter.com")) {
-      const parts = pathname.split("/").filter(Boolean);
       const statusIdx = parts.indexOf("status");
       if (statusIdx !== -1 && parts[statusIdx + 1]) {
-        return { type: "x", id: parts[statusIdx + 1] };
+        const id = parts[statusIdx + 1].split("?")[0];
+        return { type: "x", id };
       }
     }
 
-    // Instagram
+    // 4. Instagram
     if (host.includes("instagram.com") || host.includes("instagr.am")) {
-      const parts = pathname.split("/").filter(Boolean);
       if (parts.length >= 2 && (parts[0] === "p" || parts[0] === "reel")) {
         return { type: "instagram", code: parts[1] };
       }
     }
 
-    // ニコニコ動画
+    // 5. ニコニコ動画
     if (host.includes("nicovideo.jp")) {
-      const parts = pathname.split("/").filter(Boolean);
       if (parts[0] === "watch" && parts[1]) {
-        const id = parts[1].replace(/^sm/, "");
-        return { type: "niconico", id };
+        return { type: "niconico", id: parts[1].replace(/^sm/, "") };
       }
     } else if (host.includes("nico.ms")) {
-      const id = pathname.slice(1).replace(/^sm/, "");
-      if (id) return { type: "niconico", id };
+      if (parts[0]) return { type: "niconico", id: parts[0].replace(/^sm/, "") };
     }
 
-    // Vimeo
+    // 6. Vimeo
     if (host.includes("vimeo.com")) {
-      const parts = pathname.split("/").filter(Boolean);
       if (parts[0] && /^\d+$/.test(parts[0])) {
         return { type: "vimeo", id: parts[0] };
       }
     }
 
-    // TikTok
+    // 7. TikTok (パース & overload-protect 修正)
     if (host.includes("tiktok.com")) {
-      const parts = pathname.split("/").filter(Boolean);
       const videoIdx = parts.indexOf("video");
       if (videoIdx !== -1 && parts[videoIdx + 1]) {
-        return { type: "tiktok", id: parts[videoIdx + 1] };
+        const id = parts[videoIdx + 1].split("?")[0];
+        return { type: "tiktok", id };
       }
     }
 
-    // SoundCloud
+    // 8. SoundCloud
     if (host.includes("soundcloud.com")) {
-      const parts = pathname.split("/").filter(Boolean);
       if (parts.length >= 2) {
         return { type: "soundcloud", url: cleanUrl };
       }
     }
+
+    // 9. Twitch
+    if (host.includes("twitch.tv")) {
+      if (host.includes("clips.twitch.tv")) {
+        if (parts[0]) return { type: "twitch", kind: "clip", id: parts[0] };
+      }
+      const videoIdx = parts.indexOf("videos");
+      if (videoIdx !== -1 && parts[videoIdx + 1]) {
+        return { type: "twitch", kind: "video", id: parts[videoIdx + 1] };
+      }
+      const clipIdx = parts.indexOf("clip");
+      if (clipIdx !== -1 && parts[clipIdx + 1]) {
+        return { type: "twitch", kind: "clip", id: parts[clipIdx + 1] };
+      }
+    }
+
+    // 10. Bilibili
+    if (host.includes("bilibili.com")) {
+      const videoIdx = parts.indexOf("video");
+      if (videoIdx !== -1 && parts[videoIdx + 1]) {
+        const bvid = parts[videoIdx + 1].split("?")[0];
+        return { type: "bilibili", bvid };
+      }
+    }
+
+    // 11. Apple Music
+    if (host.includes("music.apple.com")) {
+      return { type: "apple_music", path: pathname };
+    }
+
+    // 12. Amazon Music
+    if (host.includes("music.amazon")) {
+      return { type: "amazon_music", url: cleanUrl };
+    }
+
+    // 13. Voicy
+    if (host.includes("voicy.jp")) {
+      const channelIdx = parts.indexOf("channel");
+      const epIdx = parts.indexOf("episodes");
+      if (channelIdx !== -1 && epIdx !== -1 && parts[channelIdx + 1] && parts[epIdx + 1]) {
+        return { type: "voicy", channelId: parts[channelIdx + 1], episodeId: parts[epIdx + 1] };
+      }
+    }
+
+    // 14. stand.fm
+    if (host.includes("stand.fm")) {
+      const epIdx = parts.indexOf("episodes");
+      if (epIdx !== -1 && parts[epIdx + 1]) {
+        return { type: "stand_fm", id: parts[epIdx + 1] };
+      }
+    }
+
+    // 15. Pinterest
+    if (host.includes("pinterest.com") || host.includes("pin.it")) {
+      const pinIdx = parts.indexOf("pin");
+      if (pinIdx !== -1 && parts[pinIdx + 1]) {
+        return { type: "pinterest", id: parts[pinIdx + 1] };
+      }
+    }
+
+    // 16. Giphy
+    if (host.includes("giphy.com") || host.includes("gph.is")) {
+      const gifsIdx = parts.indexOf("gifs");
+      if (gifsIdx !== -1 && parts[gifsIdx + 1]) {
+        const slug = parts[gifsIdx + 1];
+        const id = slug.split("-").pop() || slug;
+        return { type: "giphy", id };
+      }
+    }
+
+    // 17. Docswell
+    if (host.includes("docswell.com")) {
+      const sIdx = parts.indexOf("s");
+      if (sIdx !== -1 && parts[sIdx + 2]) {
+        return { type: "docswell", id: parts[sIdx + 2] };
+      }
+    }
+
+    // 18. CodePen
+    if (host.includes("codepen.io")) {
+      const penIdx = parts.indexOf("pen");
+      if (penIdx > 0 && parts[penIdx + 1]) {
+        return { type: "codepen", user: parts[penIdx - 1], id: parts[penIdx + 1] };
+      }
+    }
+
+    // 19. Figma
+    if (host.includes("figma.com")) {
+      if (parts[0] === "file" || parts[0] === "design" || parts[0] === "proto") {
+        return { type: "figma", url: cleanUrl };
+      }
+    }
+
+    // 20. Google Maps
+    if ((host.includes("google.com") && pathname.includes("maps")) || host.includes("maps.app.goo.gl") || host.includes("maps.google")) {
+      return { type: "google_maps", queryUrl: cleanUrl };
+    }
   } catch {
-    // ignore
+    // fallback
   }
   return null;
 }
 
 function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
+  const [parentDomain, setParentDomain] = useState("localhost");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setParentDomain(window.location.hostname);
+    }
+  }, []);
+
   switch (embed.type) {
     case "youtube":
       return (
@@ -129,20 +239,22 @@ function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
           </div>
         </div>
       );
+
     case "spotify":
-      const height = embed.subType === "track" ? 80 : 152;
+      const spotifyHeight = embed.subType === "track" ? 152 : 352;
       return (
         <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
           <iframe
             src={`https://open.spotify.com/embed/${embed.subType}/${embed.id}?utm_source=generator&theme=0`}
             width="100%"
-            height={height}
+            height={spotifyHeight}
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
             className="border-0 rounded-xl"
           />
         </div>
       );
+
     case "x":
       return (
         <div className="mt-3 w-full max-w-md mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 shadow-lg min-h-[250px]" onClick={(e) => e.stopPropagation()}>
@@ -156,6 +268,7 @@ function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
           />
         </div>
       );
+
     case "instagram":
       return (
         <div className="mt-3 w-full max-w-sm mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -169,6 +282,7 @@ function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
           />
         </div>
       );
+
     case "niconico":
       return (
         <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -183,6 +297,7 @@ function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
           </div>
         </div>
       );
+
     case "vimeo":
       return (
         <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -198,19 +313,23 @@ function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
           </div>
         </div>
       );
+
     case "tiktok":
       return (
         <div className="mt-3 w-full max-w-xs mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
           <iframe
             src={`https://www.tiktok.com/embed/v2/${embed.id}`}
             width="100%"
-            height="500"
+            height="735"
             className="border-0 w-full rounded-xl"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
             loading="lazy"
             title="TikTok video"
           />
         </div>
       );
+
     case "soundcloud":
       return (
         <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -226,6 +345,183 @@ function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
           />
         </div>
       );
+
+    case "twitch":
+      const twitchSrc = embed.kind === "clip"
+        ? `https://clips.twitch.tv/embed?clip=${embed.id}&parent=${parentDomain}&autoplay=false`
+        : `https://player.twitch.tv/?video=${embed.id}&parent=${parentDomain}&autoplay=false`;
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={twitchSrc}
+              title="Twitch Player"
+              allowFullScreen
+              className="absolute top-0 left-0 w-full h-full border-0"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      );
+
+    case "bilibili":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={`https://player.bilibili.com/player.html?bvid=${embed.bvid}&page=1&high_quality=1&danmaku=0`}
+              title="Bilibili Player"
+              allowFullScreen
+              className="absolute top-0 left-0 w-full h-full border-0"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      );
+
+    case "apple_music":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://embed.music.apple.com${embed.path}`}
+            height="175"
+            width="100%"
+            allow="autoplay *; encrypted-media *; fullscreen *"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="Apple Music"
+          />
+        </div>
+      );
+
+    case "amazon_music":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={embed.url}
+            height="300"
+            width="100%"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="Amazon Music"
+          />
+        </div>
+      );
+
+    case "voicy":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://voicy.jp/embed/channel/${embed.channelId}/episode/${embed.episodeId}`}
+            width="100%"
+            height="180"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="Voicy Player"
+          />
+        </div>
+      );
+
+    case "stand_fm":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://stand.fm/embed/episodes/${embed.id}`}
+            width="100%"
+            height="200"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="stand.fm Player"
+          />
+        </div>
+      );
+
+    case "pinterest":
+      return (
+        <div className="mt-3 w-full max-w-xs mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://assets.pinterest.com/ext/embed.html?id=${embed.id}`}
+            height="420"
+            width="100%"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="Pinterest Pin"
+          />
+        </div>
+      );
+
+    case "giphy":
+      return (
+        <div className="mt-3 w-full max-w-md mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={`https://giphy.com/embed/${embed.id}`}
+              title="Giphy GIF"
+              className="absolute top-0 left-0 w-full h-full border-0"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      );
+
+    case "docswell":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://www.docswell.com/slide/${embed.id}/embed`}
+            width="100%"
+            height="340"
+            className="border-0 rounded-xl"
+            allowFullScreen
+            loading="lazy"
+            title="Docswell Slide"
+          />
+        </div>
+      );
+
+    case "codepen":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://codepen.io/${embed.user}/embed/${embed.id}?default-tab=result&theme-id=dark`}
+            width="100%"
+            height="360"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="CodePen Demo"
+          />
+        </div>
+      );
+
+    case "figma":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(embed.url)}`}
+            width="100%"
+            height="400"
+            className="border-0 rounded-xl"
+            allowFullScreen
+            loading="lazy"
+            title="Figma Prototype"
+          />
+        </div>
+      );
+
+    case "google_maps":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(embed.queryUrl)}&output=embed`}
+            width="100%"
+            height="280"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="Google Maps"
+          />
+        </div>
+      );
+
     default:
       return null;
   }
