@@ -7,6 +7,22 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-10-05 (14回目)
+#### 11-2. マルチメディア（Spotify, X, Instagram, ニコニコ動画, Vimeo, TikTok, SoundCloud等）の自動埋め込み再生拡張
+- **編集箇所**:
+  - `src/app/page.tsx`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - 投稿文に含まれる URL 自動検出機能を大幅拡張し、YouTube だけでなく **Spotify** (楽曲/アルバム/プレイリスト/ポッドキャスト), **X (旧Twitter)** (ポスト/ツイート), **Instagram** (投稿/リール), **ニコニコ動画**, **Vimeo**, **TikTok**, **SoundCloud** の 8 大主要メディアサービスに対応。
+  - 各サービスに最適化された埋め込みプレイヤー (`MediaEmbedItem`) を自動生成して表示。
+  - 音声試聴・動画再生時の画面タップのバブリング防止 (`e.stopPropagation()`) や `loading="lazy"` 属性による表示高速化・メモリ最適化を標準装備。
+- **具体的なプログラムの編集内容**:
+  - `src/app/page.tsx`:
+    - `MediaEmbedType` 型定義を追加。
+    - `parseMediaEmbed(url: string)` 関数を追加し、多種のドメイン（`spotify.com`, `x.com`, `twitter.com`, `instagram.com`, `nicovideo.jp`, `nico.ms`, `vimeo.com`, `tiktok.com`, `soundcloud.com` 等）からID/ショートコード/URLパラメータを自動抽出するパーサーを実装。
+    - `MediaEmbedItem` コンポーネントを追加。Spotify (高さ80px/152px), X/Instagram カード, ニコニコ/Vimeo (16:9), TikTok (縦型), SoundCloud (波形プレイヤー) などサービスごとの専用プレイヤー枠を安全にレンダリング。
+    - `FormattedContent` で `parseMediaEmbed` によるメディア解析と重複排除を行い、投稿本文下にレスポンシブなメディアカードを連続レンダリングする統合 `MediaEmbedRouter` 構造にアップデート。
+
 ### 📅 2026-10-05 (13回目)
 #### 11. URLの自動リンク化 & YouTube等の埋め込み再生 & スマホ版レイアウト見切れ修正
 - **編集箇所**:

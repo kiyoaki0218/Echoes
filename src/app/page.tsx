@@ -9,27 +9,226 @@ import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
 
-function extractYouTubeId(url: string): string | null {
+type MediaEmbedType =
+  | { type: "youtube"; id: string }
+  | { type: "spotify"; subType: string; id: string }
+  | { type: "x"; id: string }
+  | { type: "instagram"; code: string }
+  | { type: "niconico"; id: string }
+  | { type: "vimeo"; id: string }
+  | { type: "tiktok"; id: string }
+  | { type: "soundcloud"; url: string };
+
+function parseMediaEmbed(url: string): MediaEmbedType | null {
   try {
     const cleanUrl = url.replace(/[),;.]+$/, "");
     const parsed = new URL(cleanUrl);
-    if (parsed.hostname.includes("youtube.com")) {
-      if (parsed.pathname.startsWith("/watch")) {
-        return parsed.searchParams.get("v");
+    const host = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname;
+
+    // YouTube
+    if (host.includes("youtube.com")) {
+      if (pathname.startsWith("/watch")) {
+        const v = parsed.searchParams.get("v");
+        if (v) return { type: "youtube", id: v };
       }
-      if (parsed.pathname.startsWith("/shorts/")) {
-        return parsed.pathname.split("/")[2] || null;
+      if (pathname.startsWith("/shorts/")) {
+        const id = pathname.split("/")[2];
+        if (id) return { type: "youtube", id };
       }
-      if (parsed.pathname.startsWith("/embed/")) {
-        return parsed.pathname.split("/")[2] || null;
+      if (pathname.startsWith("/embed/")) {
+        const id = pathname.split("/")[2];
+        if (id) return { type: "youtube", id };
       }
-    } else if (parsed.hostname.includes("youtu.be")) {
-      return parsed.pathname.slice(1).split("?")[0] || null;
+    } else if (host.includes("youtu.be")) {
+      const id = pathname.slice(1).split("?")[0];
+      if (id) return { type: "youtube", id };
+    }
+
+    // Spotify
+    if (host.includes("spotify.com")) {
+      const parts = pathname.split("/").filter(Boolean);
+      if (parts.length >= 2 && ["track", "album", "playlist", "episode", "show"].includes(parts[0])) {
+        return { type: "spotify", subType: parts[0], id: parts[1] };
+      }
+    }
+
+    // X (Twitter)
+    if (host.includes("x.com") || host.includes("twitter.com")) {
+      const parts = pathname.split("/").filter(Boolean);
+      const statusIdx = parts.indexOf("status");
+      if (statusIdx !== -1 && parts[statusIdx + 1]) {
+        return { type: "x", id: parts[statusIdx + 1] };
+      }
+    }
+
+    // Instagram
+    if (host.includes("instagram.com") || host.includes("instagr.am")) {
+      const parts = pathname.split("/").filter(Boolean);
+      if (parts.length >= 2 && (parts[0] === "p" || parts[0] === "reel")) {
+        return { type: "instagram", code: parts[1] };
+      }
+    }
+
+    // ニコニコ動画
+    if (host.includes("nicovideo.jp")) {
+      const parts = pathname.split("/").filter(Boolean);
+      if (parts[0] === "watch" && parts[1]) {
+        const id = parts[1].replace(/^sm/, "");
+        return { type: "niconico", id };
+      }
+    } else if (host.includes("nico.ms")) {
+      const id = pathname.slice(1).replace(/^sm/, "");
+      if (id) return { type: "niconico", id };
+    }
+
+    // Vimeo
+    if (host.includes("vimeo.com")) {
+      const parts = pathname.split("/").filter(Boolean);
+      if (parts[0] && /^\d+$/.test(parts[0])) {
+        return { type: "vimeo", id: parts[0] };
+      }
+    }
+
+    // TikTok
+    if (host.includes("tiktok.com")) {
+      const parts = pathname.split("/").filter(Boolean);
+      const videoIdx = parts.indexOf("video");
+      if (videoIdx !== -1 && parts[videoIdx + 1]) {
+        return { type: "tiktok", id: parts[videoIdx + 1] };
+      }
+    }
+
+    // SoundCloud
+    if (host.includes("soundcloud.com")) {
+      const parts = pathname.split("/").filter(Boolean);
+      if (parts.length >= 2) {
+        return { type: "soundcloud", url: cleanUrl };
+      }
     }
   } catch {
     // ignore
   }
   return null;
+}
+
+function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
+  switch (embed.type) {
+    case "youtube":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={`https://www.youtube.com/embed/${embed.id}`}
+              title="YouTube video player"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webshare"
+              allowFullScreen
+              className="absolute top-0 left-0 w-full h-full border-0"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      );
+    case "spotify":
+      const height = embed.subType === "track" ? 80 : 152;
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://open.spotify.com/embed/${embed.subType}/${embed.id}?utm_source=generator&theme=0`}
+            width="100%"
+            height={height}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            className="border-0 rounded-xl"
+          />
+        </div>
+      );
+    case "x":
+      return (
+        <div className="mt-3 w-full max-w-md mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 shadow-lg min-h-[250px]" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://platform.twitter.com/embed/Tweet.html?id=${embed.id}&theme=dark`}
+            width="100%"
+            height="320"
+            className="border-0 w-full rounded-xl"
+            loading="lazy"
+            title="X (Twitter) Post"
+          />
+        </div>
+      );
+    case "instagram":
+      return (
+        <div className="mt-3 w-full max-w-sm mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://www.instagram.com/p/${embed.code}/embed`}
+            width="100%"
+            height="440"
+            className="border-0 w-full rounded-xl"
+            loading="lazy"
+            title="Instagram Post"
+          />
+        </div>
+      );
+    case "niconico":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={`https://embed.nicovideo.jp/watch/sm${embed.id}`}
+              title="ニコニコ動画"
+              allowFullScreen
+              className="absolute top-0 left-0 w-full h-full border-0"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      );
+    case "vimeo":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full aspect-video">
+            <iframe
+              src={`https://player.vimeo.com/video/${embed.id}`}
+              title="Vimeo video player"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+              className="absolute top-0 left-0 w-full h-full border-0"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      );
+    case "tiktok":
+      return (
+        <div className="mt-3 w-full max-w-xs mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://www.tiktok.com/embed/v2/${embed.id}`}
+            width="100%"
+            height="500"
+            className="border-0 w-full rounded-xl"
+            loading="lazy"
+            title="TikTok video"
+          />
+        </div>
+      );
+    case "soundcloud":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            width="100%"
+            height="166"
+            scrolling="no"
+            frameBorder="no"
+            allow="autoplay"
+            src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(embed.url)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`}
+            loading="lazy"
+            title="SoundCloud player"
+          />
+        </div>
+      );
+    default:
+      return null;
+  }
 }
 
 function FormattedContent({
@@ -43,15 +242,18 @@ function FormattedContent({
 }) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts = content.split(urlRegex);
-  const youtubeIds: string[] = [];
+  const mediaEmbeds: MediaEmbedType[] = [];
 
   const renderedText = parts.map((part, index) => {
     if (part.match(/^https?:\/\//)) {
       const cleanUrl = part.replace(/[),;.]+$/, "");
       const trailingPunctuation = part.slice(cleanUrl.length);
-      const ytId = extractYouTubeId(cleanUrl);
-      if (ytId && !youtubeIds.includes(ytId)) {
-        youtubeIds.push(ytId);
+      const embed = parseMediaEmbed(cleanUrl);
+      if (embed) {
+        const key = JSON.stringify(embed);
+        if (!mediaEmbeds.some((e) => JSON.stringify(e) === key)) {
+          mediaEmbeds.push(embed);
+        }
       }
       return (
         <Fragment key={index}>
@@ -82,22 +284,8 @@ function FormattedContent({
       <div className={`text-neutral-200 leading-relaxed font-light ${textStyle}`}>
         {renderedText}
       </div>
-      {youtubeIds.map((ytId) => (
-        <div
-          key={ytId}
-          className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-lg"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="relative w-full aspect-video">
-            <iframe
-              src={`https://www.youtube.com/embed/${ytId}`}
-              title="YouTube video player"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webshare"
-              allowFullScreen
-              className="absolute top-0 left-0 w-full h-full border-0"
-            />
-          </div>
-        </div>
+      {mediaEmbeds.map((embed, idx) => (
+        <MediaEmbedItem key={idx} embed={embed} />
       ))}
     </div>
   );
