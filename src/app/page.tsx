@@ -29,7 +29,11 @@ type MediaEmbedType =
   | { type: "docswell"; id: string }
   | { type: "codepen"; user: string; id: string }
   | { type: "figma"; url: string }
-  | { type: "google_maps"; queryUrl: string };
+  | { type: "google_maps"; queryUrl: string }
+  | { type: "speakerdeck"; id: string }
+  | { type: "slideshare"; path: string }
+  | { type: "bandcamp"; trackId: string; albumId: string }
+  | { type: "github_gist"; user: string; id: string };
 
 function parseMediaEmbed(url: string): MediaEmbedType | null {
   try {
@@ -207,6 +211,42 @@ function parseMediaEmbed(url: string): MediaEmbedType | null {
     // 20. Google Maps
     if ((host.includes("google.com") && pathname.includes("maps")) || host.includes("maps.app.goo.gl") || host.includes("maps.google")) {
       return { type: "google_maps", queryUrl: cleanUrl };
+    }
+
+    // 21. SpeakerDeck
+    if (host.includes("speakerdeck.com")) {
+      if (parts.length >= 2) {
+        const deckId = parts[1];
+        return { type: "speakerdeck", id: deckId };
+      }
+    }
+
+    // 22. SlideShare
+    if (host.includes("slideshare.net")) {
+      if (parts.length >= 2) {
+        return { type: "slideshare", path: pathname };
+      }
+    }
+
+    // 23. Bandcamp
+    if (host.includes("bandcamp.com")) {
+      const trackParam = parsed.searchParams.get("t");
+      const albumParam = parsed.searchParams.get("a");
+      if (trackParam || albumParam) {
+        return { type: "bandcamp", trackId: trackParam || "", albumId: albumParam || "" };
+      }
+      // URLからtrack/albumを推定
+      if (parts.includes("track")) {
+        const trackIdx = parts.indexOf("track");
+        return { type: "bandcamp", trackId: parts[trackIdx + 1] || "", albumId: "" };
+      }
+    }
+
+    // 24. GitHub Gist
+    if (host.includes("gist.github.com")) {
+      if (parts.length >= 2) {
+        return { type: "github_gist", user: parts[0], id: parts[1].split("?")[0] };
+      }
     }
   } catch {
     // fallback
@@ -518,6 +558,67 @@ function MediaEmbedItem({ embed }: { embed: MediaEmbedType }) {
             className="border-0 rounded-xl"
             loading="lazy"
             title="Google Maps"
+          />
+        </div>
+      );
+
+    case "speakerdeck":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://speakerdeck.com/player/${embed.id}`}
+            width="100%"
+            height="400"
+            className="border-0 rounded-xl"
+            allowFullScreen
+            loading="lazy"
+            title="SpeakerDeck Slide"
+          />
+        </div>
+      );
+
+    case "slideshare":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`https://www.slideshare.net/slideshow/embed_code${embed.path}`}
+            width="100%"
+            height="400"
+            className="border-0 rounded-xl"
+            allowFullScreen
+            loading="lazy"
+            title="SlideShare Presentation"
+          />
+        </div>
+      );
+
+    case "bandcamp":
+      const bcSrc = embed.trackId
+        ? `https://bandcamp.com/EmbeddedPlayer/track=${embed.trackId}/size=large/bgcol=333333/linkcol=ffffff/tracklist=false/transparent=true/`
+        : `https://bandcamp.com/EmbeddedPlayer/album=${embed.albumId}/size=large/bgcol=333333/linkcol=ffffff/tracklist=false/transparent=true/`;
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={bcSrc}
+            width="100%"
+            height="120"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="Bandcamp Player"
+          />
+        </div>
+      );
+
+    case "github_gist":
+      return (
+        <div className="mt-3 w-full max-w-lg mx-auto overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <iframe
+            src={`data:text/html;charset=utf-8,<script src="https://gist.github.com/${embed.user}/${embed.id}.js"><\/script>`}
+            width="100%"
+            height="300"
+            className="border-0 rounded-xl"
+            loading="lazy"
+            title="GitHub Gist"
           />
         </div>
       );

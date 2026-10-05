@@ -1,4 +1,4 @@
-﻿# Echoes 残響 - 更新実績・変更履歴 (CHANGELOG)
+# Echoes 残響 - 更新実績・変更履歴 (CHANGELOG)
 
 このドキュメントは、これまでに実施したプログラムの具体的な編集内容、編集箇所、および更新実績を記録するためのものです。
 今後は未実装タスクを管理する `TODO.md`（更新予定）とセットで更新・運用を行います。
@@ -6,6 +6,16 @@
 ---
 
 ## 📜 更新履歴一覧
+
+### 🔧 2026-10-05 (16回目)
+#### メディア埋め込みの修正と追加サービス対応
+- **編集対象ファイル**:
+  - `src/app/page.tsx`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - **Spotify** の表示高さを修正（track: 80px→152px、その他: 152px→352px）。枠が正しく表示されるように。
+  - **TikTok** embed URL を /embed/v2/{id} に統一、allow属性を utoplay; encrypted-media に変更、高さを735pxに調整。
+  - 新規サービスを追加: **SpeakerDeck**（スライド埋め込み）、**SlideShare**（プレゼン埋め込み）、**Bandcamp**（音楽プレイヤー）、**GitHub Gist**（コードスニペット表示）。
 
 ### 📅 2026-10-05 (14回目)
 #### 11-2. マルチメディア（Spotify, X, Instagram, ニコニコ動画, Vimeo, TikTok, SoundCloud等）の自動埋め込み再生拡張
