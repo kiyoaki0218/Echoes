@@ -780,11 +780,9 @@ function HomeContent() {
 
   const maxChars = formMode === "bubble" ? 60 : 800;
 
-  // 指定投稿メイン画面表示
-  const viewEchoOnMain = async (echo: MyEchoStatus) => {
-    if (echo.is_deleted) return;
+  // ID指定でメイン画面に投稿を表示（引用元ジャンプ用など）
+  const viewEchoById = async (id: string) => {
     setShowMyList(false);
-
     setFade(false);
     setErrorMsg(null);
     setTimeout(async () => {
@@ -793,22 +791,33 @@ function HomeContent() {
         const { data, error } = await supabase
           .from("echoes")
           .select("*")
-          .eq("id", echo.id)
+          .eq("id", id)
           .single();
         if (error || !data) {
+          alert("引用元の残響は寿命を迎え、すでに消滅しています。");
           fetchRandomEcho(mode);
           return;
         }
+        try {
+          window.history.pushState(null, "", "/?echo=" + id);
+        } catch {}
         setMode(data.mode as DisplayMode);
         setCurrentEcho(data as Echo);
         await handleIncrementView(data.id);
       } catch {
+        alert("引用元の残響を取得できませんでした。");
         fetchRandomEcho(mode);
       } finally {
         setLoading(false);
         setFade(true);
       }
     }, 300);
+  };
+
+  // 指定投稿メイン画面表示（マイリストから）
+  const viewEchoOnMain = async (echo: MyEchoStatus) => {
+    if (echo.is_deleted) return;
+    await viewEchoById(echo.id);
   };
 
   const fetchRandomEcho = async (selectedMode: DisplayMode) => {
@@ -1390,24 +1399,38 @@ function HomeContent() {
                     mode={currentEcho.mode}
                   />
 
-                  {/* 引用された残響カード */}
+                  {/* 引用された残響カード（タップで引用元へ遷移） */}
                   {currentEcho.quoted_content && (
                     <div
-                      className="w-full max-w-xl mx-auto mt-4 p-3.5 sm:p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 text-left cursor-default select-text backdrop-blur-sm shadow-inner"
-                      onClick={(e) => e.stopPropagation()}
+                      className={`w-full max-w-xl mx-auto mt-4 p-3.5 sm:p-4 rounded-xl bg-neutral-900/70 border border-neutral-800 text-left backdrop-blur-sm shadow-inner transition-all group ${currentEcho.quoted_id ? "cursor-pointer hover:border-neutral-700 hover:bg-neutral-900/90 active:scale-[0.99]" : "cursor-default"}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (currentEcho.quoted_id) {
+                          viewEchoById(currentEcho.quoted_id);
+                        }
+                      }}
+                      title={currentEcho.quoted_id ? "タップして引用元の残響を表示" : undefined}
                     >
-                      <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-neutral-400 font-sans mb-1.5">
-                        <Quote className="w-3 h-3 text-neutral-400 shrink-0" />
-                        <span className="tracking-wider">引用された残響</span>
-                        {currentEcho.quoted_mode && (
-                          <span className={`px-1.5 py-0.2 rounded text-[9px] border ${currentEcho.quoted_mode === "bubble" ? "bg-blue-950/40 text-blue-300 border-blue-900/40" : "bg-purple-950/40 text-purple-300 border-purple-900/40"}`}>
-                            {currentEcho.quoted_mode === "bubble" ? "泡沫" : "遺言"}
+                      <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] text-neutral-400 font-sans mb-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Quote className="w-3 h-3 text-neutral-400 shrink-0" />
+                          <span className="tracking-wider text-neutral-300 font-medium">引用された残響</span>
+                          {currentEcho.quoted_mode && (
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] border ${currentEcho.quoted_mode === "bubble" ? "bg-blue-950/40 text-blue-300 border-blue-900/40" : "bg-purple-950/40 text-purple-300 border-purple-900/40"}`}>
+                              {currentEcho.quoted_mode === "bubble" ? "泡沫" : "遺言"}
+                            </span>
+                          )}
+                        </div>
+                        {currentEcho.quoted_id && (
+                          <span className="flex items-center gap-1 text-[10px] text-blue-400 group-hover:text-blue-300 transition-colors shrink-0">
+                            <span>引用元を見る</span>
+                            <ExternalLink className="w-3 h-3" />
                           </span>
                         )}
                       </div>
                       <FormattedContent
                         content={currentEcho.quoted_content}
-                        className="text-xs sm:text-sm text-neutral-300 font-serif leading-relaxed line-clamp-4"
+                        className="text-xs sm:text-sm text-neutral-300 font-serif leading-relaxed line-clamp-4 pointer-events-none"
                       />
                     </div>
                   )}
@@ -1635,10 +1658,15 @@ function HomeContent() {
                   return (
                     <div key={echo.id} className="bg-neutral-950/50 border border-neutral-800/50 rounded-xl overflow-hidden">
                       <div className="p-3 sm:p-4">
-                        <div className="mb-2">
+                        <div className="mb-2 flex items-center gap-1.5 flex-wrap">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-sans border ${echo.mode === "bubble" ? "bg-blue-950/50 text-blue-300 border-blue-900/50" : "bg-purple-950/50 text-purple-300 border-purple-900/50"}`}>
                             {echo.mode === "bubble" ? "泡沫" : "遺言"}
                           </span>
+                          {(echo.quoted_content || echo.quoted_id) && (
+                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-neutral-800/80 border border-neutral-700/60 text-neutral-300 font-sans">
+                              <Quote className="w-2.5 h-2.5 text-neutral-400" />引用
+                            </span>
+                          )}
                         </div>
                         {isLong ? (
                           <>

@@ -20,6 +20,9 @@ type Echo = {
   resonance_count: number;
   report_count?: number;
   is_promoted?: boolean;
+  quoted_id?: string;
+  quoted_content?: string;
+  quoted_mode?: string;
 };
 
 type SortBy = "created_at" | "view_count" | "resonance_count" | "remaining_views" | "report_count";
@@ -658,6 +661,11 @@ export default function AdminDashboard() {
                           <td className="px-3 py-3 lg:px-3.5 lg:py-3.5 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
+                              {(echo.quoted_id || echo.quoted_content) && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-neutral-800 border border-neutral-700 text-neutral-300 font-sans" title="引用残響">
+                                  <Quote className="w-2.5 h-2.5" />引用
+                                </span>
+                              )}
                               {echo.is_promoted && (
                                 <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-amber-950/60 border border-amber-800/50 text-amber-400 font-sans">
                                   <Star className="w-2.5 h-2.5 fill-amber-400" />PR
@@ -671,14 +679,40 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-neutral-300">
-                            <div className={`max-w-xl font-serif whitespace-pre-wrap ${!expandedIds.has(echo.id) && echo.mode === "will" ? "line-clamp-2" : ""}`}>
+                          <td className="px-3.5 py-3 lg:px-4 lg:py-3.5 text-neutral-300">
+                            <div className={`break-words font-serif whitespace-pre-wrap ${!expandedIds.has(echo.id) && echo.mode === "will" ? "line-clamp-2" : ""}`}>
                               {echo.content}
                             </div>
                             {echo.mode === "will" && (
                               <button onClick={() => toggleExpand(echo.id)} className="mt-2 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans">
                                 {expandedIds.has(echo.id) ? <><ChevronUp className="w-3 h-3" />折りたたむ</> : <><ChevronDown className="w-3 h-3" />すべて表示</>}
                               </button>
+                            )}
+                            {echo.quoted_content && (
+                              <div className="mt-2.5 p-2 rounded-lg bg-neutral-950/70 border border-neutral-800 text-xs text-neutral-400">
+                                <div className="flex items-center justify-between text-[10px] text-neutral-500 font-sans mb-1">
+                                  <span className="flex items-center gap-1">
+                                    <Quote className="w-2.5 h-2.5 text-neutral-400" />
+                                    <span>引用された残響</span>
+                                    {echo.quoted_mode && <span>({echo.quoted_mode === "bubble" ? "泡沫" : "遺言"})</span>}
+                                  </span>
+                                  {echo.quoted_id && (
+                                    <a
+                                      href={`/?echo=${echo.quoted_id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-0.5 text-blue-400 hover:text-blue-300 transition-colors ml-2 shrink-0"
+                                      title="引用元の残響を表示"
+                                    >
+                                      <span>引用元を開く</span>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="line-clamp-2 font-serif text-neutral-300 whitespace-pre-wrap leading-relaxed">
+                                  {echo.quoted_content}
+                                </div>
+                              </div>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
@@ -764,8 +798,13 @@ export default function AdminDashboard() {
                 return (
                   <div key={echo.id} className={`rounded-xl overflow-hidden border ${isReported ? "bg-rose-950/20 border-rose-900/40" : "bg-neutral-900/50 border-neutral-800"}`}>
                     <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-neutral-800/50">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
                         <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
+                        {(echo.quoted_id || echo.quoted_content) && (
+                          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-neutral-800 border border-neutral-700 text-neutral-300">
+                            <Quote className="w-2.5 h-2.5" />引用
+                          </span>
+                        )}
                         {echo.is_promoted && (
                           <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-amber-950/60 border border-amber-800/50 text-amber-400">
                             <Star className="w-2.5 h-2.5 fill-amber-400" />PR
@@ -819,6 +858,32 @@ export default function AdminDashboard() {
                         <button onClick={() => toggleExpand(echo.id)} className="mt-1.5 flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">
                           {expandedIds.has(echo.id) ? <><ChevronUp className="w-3 h-3" />折りたたむ</> : <><ChevronDown className="w-3 h-3" />すべて表示</>}
                         </button>
+                      )}
+                      {echo.quoted_content && (
+                        <div className="mt-2.5 p-2.5 rounded-lg bg-neutral-950/70 border border-neutral-800 text-xs text-neutral-400">
+                          <div className="flex items-center justify-between text-[10px] text-neutral-500 font-sans mb-1">
+                            <span className="flex items-center gap-1">
+                              <Quote className="w-2.5 h-2.5 text-neutral-400" />
+                              <span>引用された残響</span>
+                              {echo.quoted_mode && <span>({echo.quoted_mode === "bubble" ? "泡沫" : "遺言"})</span>}
+                            </span>
+                            {echo.quoted_id && (
+                              <a
+                                href={`/?echo=${echo.quoted_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-0.5 text-blue-400 hover:text-blue-300 transition-colors ml-2 shrink-0"
+                                title="引用元の残響を表示"
+                              >
+                                <span>引用元を開く</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                          <div className="line-clamp-2 font-serif text-neutral-300 whitespace-pre-wrap leading-relaxed">
+                            {echo.quoted_content}
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div className="px-4 pb-3 flex items-center justify-between text-[11px] text-neutral-500">
