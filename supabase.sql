@@ -1,5 +1,5 @@
 -- テーブル定義
-create table echoes (
+create table if not exists echoes (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   content text not null,
@@ -13,9 +13,16 @@ create table echoes (
 -- RLS (Row Level Security) の設定
 alter table echoes enable row level security;
 
+drop policy if exists "Allow public read access" on echoes;
 create policy "Allow public read access" on echoes for select using (true);
+
+drop policy if exists "Allow public insert access" on echoes;
 create policy "Allow public insert access" on echoes for insert with check (true);
+
+drop policy if exists "Allow public update access" on echoes;
 create policy "Allow public update access" on echoes for update using (true);
+
+drop policy if exists "Allow public delete access" on echoes;
 create policy "Allow public delete access" on echoes for delete using (true);
 
 -- 投稿をランダムに1件取得する関数
@@ -120,7 +127,7 @@ $$ language plpgsql;
 -- 公式お知らせ (announcements) テーブル
 -- =============================================
 
-create table announcements (
+create table if not exists announcements (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -134,9 +141,16 @@ create table announcements (
 -- RLS
 alter table announcements enable row level security;
 
+drop policy if exists "Allow public read access" on announcements;
 create policy "Allow public read access" on announcements for select using (true);
+
+drop policy if exists "Allow public insert access" on announcements;
 create policy "Allow public insert access" on announcements for insert with check (true);
+
+drop policy if exists "Allow public update access" on announcements;
 create policy "Allow public update access" on announcements for update using (true);
+
+drop policy if exists "Allow public delete access" on announcements;
 create policy "Allow public delete access" on announcements for delete using (true);
 
 -- 掲載期間が有効なお知らせを取得する関数（期限切れは返さない）
@@ -226,7 +240,10 @@ on conflict (key) do nothing;
 
 -- RLS
 alter table echo_stats enable row level security;
+drop policy if exists "Allow public read access" on echo_stats;
 create policy "Allow public read access"  on echo_stats for select using (true);
+
+drop policy if exists "Allow public update access" on echo_stats;
 create policy "Allow public update access" on echo_stats for update using (true);
 
 -- 累計カウンターをインクリメントする関数
