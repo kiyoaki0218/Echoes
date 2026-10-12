@@ -700,6 +700,9 @@ interface Echo {
   is_reported: boolean;
   is_promoted?: boolean;
   created_at: string;
+  quoted_id?: string;
+  quoted_content?: string;
+  quoted_mode?: Mode;
 }
 
 interface MyEchoStatus {
@@ -710,6 +713,9 @@ interface MyEchoStatus {
   remaining_views: number;
   is_deleted: boolean;
   created_at: string; // ISO文字列 (UTC)
+  quoted_id?: string;
+  quoted_content?: string;
+  quoted_mode?: Mode;
 }
 
 // LocalStorageから共鳴済みIDセット取得
@@ -981,6 +987,19 @@ function HomeContent() {
 
   const openForm = () => {
     setInputContent("");
+    setQuotingEcho(null);
+    if (mode === "bubble") {
+      setFormMode("bubble");
+    } else if (mode === "will") {
+      setFormMode("will");
+    }
+    setShowForm(true);
+  };
+
+  const handleStartQuote = () => {
+    if (!currentEcho) return;
+    setInputContent("");
+    setQuotingEcho(currentEcho);
     if (mode === "bubble") {
       setFormMode("bubble");
     } else if (mode === "will") {
@@ -1000,25 +1019,49 @@ function HomeContent() {
     if (!inputContent.trim() || submitting) return;
     try {
       setSubmitting(true);
+      const payload: {
+        content: string;
+        mode: Mode;
+        max_views: number;
+        quoted_id?: string;
+        quoted_content?: string;
+        quoted_mode?: Mode;
+      } = {
+        content: inputContent.trim(),
+        mode: formMode,
+        max_views: 100,
+      };
+
+      if (quotingEcho) {
+        payload.quoted_id = quotingEcho.id;
+        payload.quoted_content = quotingEcho.content;
+        payload.quoted_mode = quotingEcho.mode;
+      }
+
       const { data, error } = await supabase
         .from("echoes")
-        .insert([{
-          content: inputContent.trim(),
-          mode: formMode,
-          max_views: 100,
-        }])
+        .insert([payload])
         .select();
 
       if (error) throw error;
 
       if (data && data.length > 0) {
         const newEcho = data[0];
-        saveMyEcho(newEcho.id, newEcho.content, formMode, newEcho.created_at);
+        saveMyEcho(
+          newEcho.id,
+          newEcho.content,
+          formMode,
+          newEcho.created_at,
+          newEcho.quoted_id,
+          newEcho.quoted_content,
+          newEcho.quoted_mode
+        );
         // 累計投稿数カウンターをインクリメント
         await supabase.rpc("increment_echo_stats");
       }
 
       setShowForm(false);
+      setQuotingEcho(null);
       setInputContent("");
       fetchRandomEcho(mode);
     } catch (err: unknown) {
@@ -1029,11 +1072,27 @@ function HomeContent() {
     }
   };
 
-  const saveMyEcho = (id: string, content: string, itemMode: Mode, createdAt: string) => {
+  const saveMyEcho = (
+    id: string,
+    content: string,
+    itemMode: Mode,
+    createdAt: string,
+    quotedId?: string,
+    quotedContent?: string,
+    quotedMode?: Mode
+  ) => {
     try {
       const saved = localStorage.getItem("my_echoes");
       const list = saved ? JSON.parse(saved) : [];
-      list.push({ id, content, mode: itemMode, created_at: createdAt });
+      list.push({
+        id,
+        content,
+        mode: itemMode,
+        created_at: createdAt,
+        quoted_id: quotedId,
+        quoted_content: quotedContent,
+        quoted_mode: quotedMode,
+      });
       localStorage.setItem("my_echoes", JSON.stringify(list));
       fetchMyEchoesStatus();
     } catch (err) {
@@ -1324,12 +1383,35 @@ function HomeContent() {
               </div>
 
               {/* コンテンツ本文（URL自動リンク・YouTube埋め込み対応 & フレキシブルスクロール） */}
-              <div className="w-full flex-1 overflow-y-auto min-h-0 px-2 py-1 scrollbar-thin flex items-center">
-                <FormattedContent
-                  content={currentEcho.content}
-                  mode={currentEcho.mode}
-                  className="my-auto"
-                />
+              <div className="w-full flex-1 overflow-y-auto min-h-0 px-2 py-1 scrollbar-thin flex flex-col items-center">
+                <div className="my-auto w-full flex flex-col items-center">
+                  <FormattedContent
+                    content={currentEcho.content}
+                    mode={currentEcho.mode}
+                  />
+
+                  {/* 引用された残響カード */}
+                  {currentEcho.quoted_content && (
+                    <div
+                      className="w-full max-w-xl mx-auto mt-4 p-3.5 sm:p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 text-left cursor-default select-text backdrop-blur-sm shadow-inner"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-neutral-400 font-sans mb-1.5">
+                        <Quote className="w-3 h-3 text-neutral-400 shrink-0" />
+                        <span className="tracking-wider">引用された残響</span>
+                        {currentEcho.quoted_mode && (
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] border ${currentEcho.quoted_mode === "bubble" ? "bg-blue-950/40 text-blue-300 border-blue-900/40" : "bg-purple-950/40 text-purple-300 border-purple-900/40"}`}>
+                            {currentEcho.quoted_mode === "bubble" ? "泡沫" : "遺言"}
+                          </span>
+                        )}
+                      </div>
+                      <FormattedContent
+                        content={currentEcho.quoted_content}
+                        className="text-xs sm:text-sm text-neutral-300 font-serif leading-relaxed line-clamp-4"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="w-full max-w-md mt-3 sm:mt-4 flex flex-col gap-1 sm:gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1354,6 +1436,14 @@ function HomeContent() {
                 >
                   <Heart className={`w-3.5 h-3.5 transition-transform group-hover:scale-125 ${isResonated ? "fill-red-500 text-red-500" : ""}`} />
                   <span>{isResonated ? `共鳴済み (${currentEcho.resonance_count})` : `共鳴する (${currentEcho.resonance_count})`}</span>
+                </button>
+                <button
+                  onClick={handleStartQuote}
+                  title="この残響を引用して投稿"
+                  className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-neutral-900/60 hover:bg-neutral-800/80 border border-neutral-800/80 text-neutral-400 hover:text-neutral-200 rounded-full text-[10px] sm:text-xs font-sans tracking-wider transition-all duration-300 active:scale-95"
+                >
+                  <Quote className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span>引用</span>
                 </button>
                 <button
                   onClick={handleReport}
@@ -1418,6 +1508,28 @@ function HomeContent() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              {/* 引用プレビューカード */}
+              {quotingEcho && (
+                <div className="mb-3 p-3 rounded-xl bg-neutral-950/80 border border-neutral-800 relative shrink-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-sans text-neutral-400 flex items-center gap-1">
+                      <Quote className="w-3 h-3 text-neutral-400" />
+                      引用中の残響 ({quotingEcho.mode === "bubble" ? "泡沫" : "遺言"})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuotingEcho(null)}
+                      className="text-neutral-500 hover:text-neutral-300 p-0.5 rounded transition-colors"
+                      title="引用を解除"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-neutral-300 line-clamp-3 font-serif whitespace-pre-wrap leading-relaxed">
+                    {quotingEcho.content}
+                  </p>
+                </div>
+              )}
               <textarea
                 value={inputContent}
                 onChange={(e) => setInputContent(e.target.value)}
