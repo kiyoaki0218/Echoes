@@ -42,6 +42,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "bubble" | "will">("all");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedAnnIds, setExpandedAnnIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
@@ -375,6 +376,14 @@ export default function AdminDashboard() {
     });
   };
 
+  const toggleAnnExpand = (id: string) => {
+    setExpandedAnnIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
   const getPageNumbers = () => {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
     const pages: (number | "...")[] = [];
@@ -426,7 +435,7 @@ export default function AdminDashboard() {
   // ソート可能なテーブルヘッダーセル
   const SortTh = ({ col, className, children }: { col: SortBy; className?: string; children: React.ReactNode }) => (
     <th
-      className={`px-6 py-4 font-medium whitespace-nowrap cursor-pointer select-none hover:text-neutral-200 transition-colors ${sortBy === col ? "text-neutral-200" : ""} ${className ?? ""}`}
+      className={`px-3.5 py-3 lg:px-4 lg:py-3.5 font-medium whitespace-nowrap cursor-pointer select-none hover:text-neutral-200 transition-colors ${sortBy === col ? "text-neutral-200" : ""} ${className ?? ""}`}
       onClick={() => handleSort(col)}
     >
       <span className="inline-flex items-center gap-1.5">
@@ -438,7 +447,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-black text-neutral-200 font-serif p-4 md:p-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full max-w-7xl mx-auto">
 
         {/* ===== ヘッダー ===== */}
         <header className="flex items-center justify-between border-b border-neutral-800 pb-4 md:pb-6 mb-4 md:mb-6 gap-3">
@@ -643,10 +652,10 @@ export default function AdminDashboard() {
                       const isReported = (echo.report_count ?? 0) > 0;
                       return (
                         <tr key={echo.id} className={isReported ? "bg-rose-950/25 hover:bg-rose-950/40 transition-colors border-l-2 border-l-rose-500" : "hover:bg-neutral-800/30 transition-colors"}>
-                          <td className="px-6 py-4 whitespace-nowrap text-neutral-400 text-xs">
+                          <td className="px-3.5 py-3 lg:px-4 lg:py-3.5 whitespace-nowrap text-neutral-400 text-xs">
                             {new Date(echo.created_at).toLocaleString("ja-JP")}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3 lg:px-3.5 lg:py-3.5 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <span className={modeBadge(echo.mode)}>{echo.mode === "bubble" ? "泡沫" : "遺言"}</span>
                               {echo.is_promoted && (
@@ -698,25 +707,25 @@ export default function AdminDashboard() {
                               )
                             ) : echo.max_views}
                           </td>
-                          <td className={`px-6 py-4 whitespace-nowrap text-right font-sans text-xs ${Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : "text-neutral-400"}`}>
+                          <td className={`px-3 py-3 lg:px-3.5 lg:py-3.5 whitespace-nowrap text-right font-sans text-xs ${Math.max(0, echo.max_views - echo.view_count) <= 10 ? "text-red-400" : "text-neutral-400"}`}>
                             {Math.max(0, echo.max_views - echo.view_count)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-neutral-400">
                             {echo.resonance_count}
                           </td>
-                          <td className={`px-6 py-4 whitespace-nowrap text-right font-sans text-xs ${isReported ? "text-rose-400 font-medium" : "text-neutral-500"}`}>
+                          <td className={`px-3 py-3 lg:px-3.5 lg:py-3.5 whitespace-nowrap text-right font-sans text-xs ${isReported ? "text-rose-400 font-medium" : "text-neutral-500"}`}>
                             {echo.report_count ?? 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
                             <div className="flex items-center justify-center gap-1">
                               <a href={`/?echo=${echo.id}`} target="_blank" rel="noopener noreferrer"
-                                className="p-2 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
+                                className="p-1.5 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="新しいタブで直表示">
                                 <ExternalLink className="w-4 h-4" />
                               </a>
                               {role === "admin" && (
                                 <button
                                   onClick={() => handleTogglePromote(echo.id, echo.is_promoted ?? false)}
-                                  className={`p-2 rounded-lg transition-colors ${echo.is_promoted ? "text-amber-400 hover:text-amber-200 hover:bg-amber-950/40" : "text-neutral-500 hover:text-amber-400 hover:bg-amber-950/30"}`}
+                                  className={`p-1.5 rounded-lg transition-colors ${echo.is_promoted ? "text-amber-400 hover:text-amber-200 hover:bg-amber-950/40" : "text-neutral-500 hover:text-amber-400 hover:bg-amber-950/30"}`}
                                   title={echo.is_promoted ? "プロモーション解除" : "プロモーションに設定"}
                                 >
                                   <Star className={`w-4 h-4 ${echo.is_promoted ? "fill-amber-400" : ""}`} />
@@ -724,17 +733,17 @@ export default function AdminDashboard() {
                               )}
                               {isReported && role === "admin" && (
                                 <button onClick={() => handleResetReport(echo.id)}
-                                  className="p-2 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg transition-colors" title="通報カウントを0にリセット">
+                                  className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-950/50 rounded-lg transition-colors" title="通報カウントを0にリセット">
                                   <RotateCcw className="w-4 h-4" />
                                 </button>
                               )}
                               {role === "admin" ? (
                                 <button onClick={() => handleDelete(echo.id)}
-                                  className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
+                                  className="p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               ) : (
-                                <span className="p-2 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
+                                <span className="p-1.5 text-neutral-700 cursor-not-allowed" title="閲覧専用のため削除不可">
                                   <Trash2 className="w-4 h-4" />
                                 </span>
                               )}
@@ -914,40 +923,67 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 {announcements.map(ann => {
                   const status = getAnnStatus(ann);
+                  const isExpanded = expandedAnnIds.has(ann.id);
                   return (
-                    <div key={ann.id} className="bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden">
-                      <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <div key={ann.id} className="bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden transition-colors">
+                      <div
+                        className="px-4 pt-3 pb-2 flex items-start justify-between gap-3 cursor-pointer hover:bg-neutral-800/20 select-none"
+                        onClick={() => toggleAnnExpand(ann.id)}
+                      >
+                        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
                           {/* ステータスバッジ */}
-                          <span className={`px-2 py-0.5 rounded-full text-[11px] border font-medium ${status.color}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] border font-medium shrink-0 ${status.color}`}>
                             {status.label}
                           </span>
                           {/* ピン留めバッジ */}
                           {ann.is_pinned && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-amber-950/30 border border-amber-800/40 text-amber-400">
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-amber-950/30 border border-amber-800/40 text-amber-400 shrink-0">
                               <Pin className="w-2.5 h-2.5" />
                               固定
                             </span>
                           )}
-                          <h3 className="text-sm font-medium text-neutral-200 truncate">{ann.title}</h3>
+                          <h3 className={`text-sm font-medium text-neutral-200 min-w-0 ${isExpanded ? "break-words" : "truncate"}`}>
+                            {ann.title}
+                          </h3>
                         </div>
-                        {role === "admin" && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button onClick={() => openAnnEdit(ann)}
-                              className="p-1.5 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="編集">
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleAnnDelete(ann.id)}
-                              className="p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                          {role === "admin" && (
+                            <>
+                              <button onClick={() => openAnnEdit(ann)}
+                                className="p-1.5 text-neutral-500 hover:text-blue-400 hover:bg-blue-950/30 rounded-lg transition-colors" title="編集">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleAnnDelete(ann.id)}
+                                className="p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors" title="削除">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => toggleAnnExpand(ann.id)}
+                            className="p-1.5 text-neutral-500 hover:text-neutral-300 rounded-lg transition-colors ml-1"
+                            title={isExpanded ? "折りたたむ" : "展開して全文表示"}
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
                       <div className="px-4 pb-2">
-                        <p className="text-sm text-neutral-400 whitespace-pre-wrap line-clamp-2">{ann.content}</p>
+                        <p className={`text-sm text-neutral-400 whitespace-pre-wrap break-words leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
+                          {ann.content}
+                        </p>
+                        <button
+                          onClick={() => toggleAnnExpand(ann.id)}
+                          className="mt-2 inline-flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors font-sans"
+                        >
+                          {isExpanded ? (
+                            <><ChevronUp className="w-3 h-3" />折りたたむ</>
+                          ) : (
+                            <><ChevronDown className="w-3 h-3" />全文を表示</>
+                          )}
+                        </button>
                       </div>
-                      <div className="px-4 pb-3 flex items-center gap-4 text-[11px] text-neutral-600">
+                      <div className="px-4 pb-3 flex items-center gap-4 text-[11px] text-neutral-600 flex-wrap">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {new Date(ann.publish_start).toLocaleString("ja-JP")} 〜 {new Date(ann.publish_end).toLocaleString("ja-JP")}
