@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
   Zap, Search, X, Menu, ExternalLink,
   ArrowUpDown, ArrowUp, ArrowDown, Flag, RotateCcw, ShieldAlert,
-  PenTool, Megaphone, Pin, PinOff, Plus, Pencil, Clock, Star,
+  PenTool, Megaphone, Pin, PinOff, Plus, Pencil, Clock, Star, Quote,
 } from "lucide-react";
 
 type Echo = {

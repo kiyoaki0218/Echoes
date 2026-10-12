@@ -241,3 +241,10 @@ $$ language plpgsql;
 
 -- 既存の投稿数で累計カウンターを初期化するSQL（初回のみ実行）
 -- update echo_stats set value = (select count(*) from echoes) where key = 'total_echo_count';
+
+-- =============================================
+-- 引用リポスト（引用残響）機能
+-- =============================================
+alter table echoes add column if not exists quoted_id uuid;
+alter table echoes add column if not exists quoted_content text;
+alter table echoes add column if not exists quoted_mode text;

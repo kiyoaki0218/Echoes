@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getActiveAnnouncements, type Announcement } from "@/app/actions/admin";
-import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight, Star, Quote } from "lucide-react";
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
@@ -752,6 +752,7 @@ function HomeContent() {
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
 
   const [showForm, setShowForm] = useState<boolean>(false);
+  const [quotingEcho, setQuotingEcho] = useState<Echo | null>(null);
   const [inputContent, setInputContent] = useState<string>("");
   const [formMode, setFormMode] = useState<Mode>("bubble");
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -1056,7 +1057,7 @@ function HomeContent() {
       const ids = list.map(item => item.id);
       const { data, error } = await supabase
         .from("echoes")
-        .select("id, content, mode, view_count, max_views, resonance_count, created_at")
+        .select("id, content, mode, view_count, max_views, resonance_count, created_at, quoted_id, quoted_content, quoted_mode")
         .in("id", ids);
 
       if (error) throw error;
@@ -1403,7 +1404,9 @@ function HomeContent() {
         <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
           <div className="w-full max-w-lg bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col min-h-[340px] max-h-[90dvh] relative">
             <button onClick={() => setShowForm(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300 transition-colors p-1"><X className="w-5 h-5" /></button>
-            <h2 className="text-base sm:text-lg tracking-widest text-neutral-300 font-light mb-4 sm:mb-6">思考を残す</h2>
+            <h2 className="text-base sm:text-lg tracking-widest text-neutral-300 font-light mb-4 sm:mb-6">
+              {quotingEcho ? "残響を引用して投稿" : "思考を残す"}
+            </h2>
             <div className="flex border-b border-neutral-800 mb-4 sm:mb-6 font-sans">
               <button type="button" onClick={() => setFormMode("bubble")} className={`flex-1 pb-2.5 sm:pb-3 text-xs sm:text-sm transition-all relative ${formMode === "bubble" ? "text-neutral-100 font-medium" : "text-neutral-500"}`}>
                 短文 <span className="text-[9px] sm:text-[10px] opacity-70">(最大60文字)</span>

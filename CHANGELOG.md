@@ -7,6 +7,40 @@
 
 ## 📜 更新履歴一覧
 
+### 📅 2026-10-12 (18回目)
+#### 12. 引用リポスト（引用残響）機能 & Obsidian 開発ナレッジベース環境構築
+- **編集対象ファイル**:
+  - `src/app/page.tsx`
+  - `src/app/admin/page.tsx`
+  - `supabase.sql`
+  - `docs/index.md`
+  - `docs/tasks/12-quote-repost.md`
+  - `.gitignore`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - **引用リポスト（引用残響）機能の実装**:
+    - 閲覧画面のアクションボタンに「引用」ボタン（`Quote` アイコン）を追加。タップすると閲覧中の残響を引用した状態で投稿モーダルが開きます。
+    - 投稿モーダル内には「引用中の残響」プレビューカードを表示し、引用解除ボタン（✕）でいつでも通常投稿に切り替え可能。
+    - メイン閲覧画面およびマイリスト画面において、引用付き投稿には下部に「引用された残響」カードをエレガントな枠でインライン表示。
+    - 管理者ダッシュボードでも引用投稿の内容をテーブルおよびカード内で確認可能に。
+  - **Obsidian 開発ナレッジベースの整備**:
+    - プロジェクト直下のObsidian連携環境（Vault）を整備。
+    - `docs/index.md`（Obsidian用ホームダッシュボード・インデックス）および `docs/tasks/12-quote-repost.md`（設計・仕様ノート）を作成。
+    - `.gitignore` に `.obsidian/` を追加し、個人ローカル設定の混入を防止。
+- **具体的なプログラムの編集内容**:
+  - `supabase.sql`:
+    - `echoes` テーブルに引用メタデータ保持用カラム `quoted_id (uuid)`, `quoted_content (text)`, `quoted_mode (text)` の定義を追加。
+  - `src/app/page.tsx`:
+    - `Echo` および `MyEchoStatus` インターフェースに `quoted_id`, `quoted_content`, `quoted_mode` プロパティを追加。
+    - `quotingEcho` State を新設し、`openForm`（引用解除）および `handleStartQuote`（引用開始ハンドラー）を実装。
+    - `handleSubmit` で引用メタデータを含めたペイロードを Supabase へ保存し、`saveMyEcho` / `fetchMyEchoesStatus` でローカルストレージおよび取得クエリと連携。
+    - メイン表示エリア内に「引用された残響」カードコンポーネントを配置。
+    - 投稿モーダル内に引用元プレビューカードと解除ボタンを配置。
+    - 自分の残響モーダル（マイリスト）内でも引用カードを表示。
+  - `src/app/admin/page.tsx`:
+    - `Echo` 型に引用プロパティを追加し、デスクトップテーブルおよびモバイルカード内に引用プレビューを表示。
+
 ### 🔧 2026-10-12 (17回目)
 #### ダッシュボードの公式お知らせ展開表示対応 & PC版1画面収容（スライドバー解消）レイアウト最適化
 - **編集対象ファイル**:
