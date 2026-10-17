@@ -1769,61 +1769,146 @@ function HomeContent() {
           </div>
         </div>
       )}
-      {/* プライバシーポリシー モーダル */}
+      {/* プライバシーポリシー & 利用規約 モーダル */}
       {showPolicy && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="w-full max-w-lg bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col max-h-[85dvh] relative">
-            <button onClick={() => setShowPolicy(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300 transition-colors p-1">
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-2xl bg-neutral-900/95 border border-neutral-800 rounded-2xl p-5 sm:p-7 md:p-8 flex flex-col max-h-[88dvh] relative shadow-2xl">
+            <button
+              onClick={() => setShowPolicy(false)}
+              className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800/60 transition-colors p-1.5 rounded-lg"
+              title="閉じる"
+            >
               <X className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 mb-4">
-              <Shield className="w-4 h-4 text-neutral-400" />
-              <h2 className="text-base sm:text-lg tracking-widest text-neutral-200 font-light">プライバシーポリシー</h2>
+
+            <div className="flex items-center gap-2.5 mb-2 border-b border-neutral-800/80 pb-3">
+              <div className="p-2 rounded-lg bg-neutral-800/50 border border-neutral-700/50 text-neutral-300">
+                <Shield className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg tracking-widest text-neutral-100 font-serif">プライバシーポリシー & 利用規約</h2>
+                <p className="text-[10px] sm:text-[11px] text-neutral-500 font-sans mt-0.5">制定日: 2026年10月1日 / 最終改定日: 2026年10月17日</p>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs sm:text-sm text-neutral-300 font-sans leading-relaxed scrollbar-thin">
-              <section className="space-y-1.5">
-                <h3 className="font-medium text-neutral-200 text-sm">1. はじめに</h3>
-                <p className="text-neutral-400 text-xs">
-                  当サービス「Echoes（残響）」は、言葉の儚さと静寂な繋がりを大切にする匿名テキストSNSです。本ポリシーでは、利用者のプライバシー情報の取り扱いについて定めます。
+
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6 text-xs sm:text-sm text-neutral-300 font-sans leading-relaxed scrollbar-thin divide-y divide-neutral-800/40">
+              
+              {/* 第1条 */}
+              <section className="pt-2 space-y-2">
+                <h3 className="font-serif font-medium text-neutral-100 text-sm flex items-center gap-2">
+                  <span className="text-[11px] font-sans px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">第1条</span>
+                  サービス理念と基本方針
+                </h3>
+                <p className="text-neutral-400 leading-relaxed text-xs sm:text-sm">
+                  当サービス「Echoes（残響）」（以下「本サービス」）は、デジタル上に溢れる恒久的な情報への対話として、「言葉の儚さ」「静寂」「偶然の巡り会い」を大切にした完全匿名のテキストSNSです。
+                  本サービスは、従来のSNSのようなユーザー登録、フォロワー数、恒久的なプロフィールの構築を必要とせず、誰でも気兼ねなく心の内を思考の残響として放ち、やがて自然に風化・消滅していく体験を提供することを目的としています。
                 </p>
               </section>
 
-              <section className="space-y-1.5">
-                <h3 className="font-medium text-neutral-200 text-sm">2. 取得する情報と利用目的</h3>
+              {/* 第2条 */}
+              <section className="pt-5 space-y-2">
+                <h3 className="font-serif font-medium text-neutral-100 text-sm flex items-center gap-2">
+                  <span className="text-[11px] font-sans px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">第2条</span>
+                  アカウントレス設計と取得情報
+                </h3>
+                <p className="text-neutral-400 leading-relaxed text-xs sm:text-sm">
+                  本サービスでは、個人の特定や追跡を防止するため、メールアドレス、電話番号、実名、SNSアカウント連携等の<strong>個人を特定できるアカウント情報の登録を一切要求いたしません</strong>。
+                </p>
+                <div className="bg-neutral-950/60 border border-neutral-800/80 rounded-xl p-3.5 space-y-2">
+                  <h4 className="text-xs font-medium text-neutral-300">当サービスが取り扱うデータの内訳:</h4>
+                  <ul className="list-disc list-inside space-y-1.5 text-neutral-400 text-xs pl-1">
+                    <li><strong>投稿コンテンツ（残響）:</strong> ユーザーが入力したテキスト、投稿種別（泡沫/遺言）、引用メタデータ、および投稿日時。</li>
+                    <li><strong>統計・動作管理数値:</strong> 表示回数カウンター、共鳴（いいね）数、通報カウント、寿命上限値。</li>
+                    <li><strong>ブラウザローカルストレージ（LocalStorage）:</strong> ご利用の端末ブラウザ内にのみ保存される「自分の残響一覧」「共鳴済み投稿のID」「通報済み投稿のID」。これらはユーザーの端末内に閉じたデータであり、サーバー側で個人と紐付けて追跡することはありません。</li>
+                  </ul>
+                </div>
+              </section>
+
+              {/* 第3条 */}
+              <section className="pt-5 space-y-2">
+                <h3 className="font-serif font-medium text-neutral-100 text-sm flex items-center gap-2">
+                  <span className="text-[11px] font-sans px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">第3条</span>
+                  投稿の寿命と完全物理削除（消滅）の原則
+                </h3>
+                <p className="text-neutral-400 leading-relaxed text-xs sm:text-sm">
+                  本サービスの中核機能として、すべての投稿には「寿命（表示回数の上限）」が設定されています。
+                </p>
                 <ul className="list-disc list-inside space-y-1 text-neutral-400 text-xs pl-1">
-                  <li><strong>投稿テキスト・モード情報:</strong> サービス内でのランダム表示、共鳴、引用機能の提供のために利用します。</li>
-                  <li><strong>ブラウザローカルデータ (LocalStorage):</strong> 「自分の残響」一覧の保持、共鳴済み・通報済み状態の判定のために端末内に保存されます。サーバー側で個人を特定・追跡するアカウント情報は保持しません。</li>
-                  <li><strong>アクセスログ・統計情報:</strong> サービスの安定稼働、表示回数上限による自動物理削除、不正利用・スパム通報の管理のために集計利用します。</li>
+                  <li>新規投稿時の初期寿命は原則として<strong>100回</strong>です。</li>
+                  <li>他の閲覧者が「共鳴する」を行うたびに、寿命が+10回延長されます。</li>
+                  <li>累積の表示回数が寿命に達した瞬間、データベースから<strong>自動的かつ不可逆的に物理削除</strong>されます。</li>
+                  <li>論理削除（非表示フラグ）ではなく物理行の完全削除であるため、一度消滅した残響は管理者を含めいかなる手段によっても復元できません。</li>
                 </ul>
               </section>
 
-              <section className="space-y-1.5">
-                <h3 className="font-medium text-neutral-200 text-sm">3. 投稿の寿命と物理削除（消滅）</h3>
-                <p className="text-neutral-400 text-xs">
-                  Echoesの特徴として、投稿は規定の表示上限回数（初期100回、共鳴により延長）に達した時点で、サーバー上から完全に自動物理削除されます。消滅した投稿の復元は行われません。
+              {/* 第4条 */}
+              <section className="pt-5 space-y-2">
+                <h3 className="font-serif font-medium text-neutral-100 text-sm flex items-center gap-2">
+                  <span className="text-[11px] font-sans px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">第4条</span>
+                  外部コンテンツの埋め込みとサードパーティ
+                </h3>
+                <p className="text-neutral-400 leading-relaxed text-xs sm:text-sm">
+                  投稿内にYouTube、Spotify、X（旧Twitter）、Instagram、TikTok、Vimeo、ニコニコ動画、SoundCloud等の公開URLが含まれている場合、投稿内容の表現力向上のためインラインプレイヤー（iframe埋め込み）を生成します。
+                </p>
+                <p className="text-neutral-500 text-[11px]">
+                  ※これら外部コンテンツの再生・表示にあたっては、各プラットフォーム事業者のプライバシーポリシーおよびクッキー規約が適用されます。当サービスから各プラットフォームへ個人情報を提供することはありません。
                 </p>
               </section>
 
-              <section className="space-y-1.5">
-                <h3 className="font-medium text-neutral-200 text-sm">4. 外部メディアの埋め込みについて</h3>
-                <p className="text-neutral-400 text-xs">
-                  投稿内にYouTube、Spotify、X等のURLが含まれる場合、各サービスの規約に基づくインライン埋め込み表示を行います。これらの外部サービスがCookie等を通じて情報を収集する場合があります。
+              {/* 第5条 */}
+              <section className="pt-5 space-y-2">
+                <h3 className="font-serif font-medium text-neutral-100 text-sm flex items-center gap-2">
+                  <span className="text-[11px] font-sans px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">第5条</span>
+                  禁止事項と通報・安全管理
+                </h3>
+                <p className="text-neutral-400 leading-relaxed text-xs sm:text-sm">
+                  すべての利用者が静寂で心地よい空間を保つため、以下の行為を固く禁止いたします。
+                </p>
+                <div className="bg-neutral-950/60 border border-neutral-800/80 rounded-xl p-3.5 space-y-1.5 text-xs text-neutral-400">
+                  <p>1. 他者への誹謗中傷、脅迫、差別的表現、名誉毀損に該当する投稿</p>
+                  <p>2. 個人を特定可能な個人情報（氏名、住所、電話番号、SNSアカウント等）の無断掲載</p>
+                  <p>3. わいせつ、暴力的、公序良俗に著しく反するコンテンツ</p>
+                  <p>4. 商業的スパム、過度な連続投稿、不正アクセスやシステムを妨害する行為</p>
+                  <p>5. その他法令に違反する行為、または運営が不適切と判断する行為</p>
+                </div>
+                <p className="text-neutral-400 text-xs mt-1">
+                  不適切な投稿を発見された場合、各投稿のアクションエリアにある「通報」ボタンをご利用ください。通報数や内容に基づき、運営管理者による審査および即時手動削除措置を実施いたします。
                 </p>
               </section>
 
-              <section className="space-y-1.5">
-                <h3 className="font-medium text-neutral-200 text-sm">5. お問い合わせ・通報</h3>
-                <p className="text-neutral-400 text-xs">
-                  不適切な投稿を発見された場合は、投稿画面の「通報」ボタンよりお知らせください。管理者が定期的に確認し、必要に応じて削除等の措置を講じます。
+              {/* 第6条 */}
+              <section className="pt-5 space-y-2">
+                <h3 className="font-serif font-medium text-neutral-100 text-sm flex items-center gap-2">
+                  <span className="text-[11px] font-sans px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">第6条</span>
+                  免責事項
+                </h3>
+                <ul className="list-disc list-inside space-y-1 text-neutral-400 text-xs pl-1">
+                  <li>本サービスは現状有姿（AS IS）で提供され、障害、データの消失、サーバーの保守点検等による中断について、運営者は一切の保証を行いません。</li>
+                  <li>ユーザー同士の投稿によって生じたトラブルや損害について、運営者は原則として責任を負いかねます。</li>
+                  <li>ブラウザのキャッシュクリアや端末変更を行った場合、端末内に保持された「自分の残響」データは失われます。</li>
+                </ul>
+              </section>
+
+              {/* 第7条 */}
+              <section className="pt-5 space-y-2 pb-2">
+                <h3 className="font-serif font-medium text-neutral-100 text-sm flex items-center gap-2">
+                  <span className="text-[11px] font-sans px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">第7条</span>
+                  規約およびポリシーの改定
+                </h3>
+                <p className="text-neutral-400 leading-relaxed text-xs sm:text-sm">
+                  運営者は、法令の改正やサービスの改善に伴い、事前の告知なく本ポリシーを改定することがあります。改定後の内容は本画面に掲載された時点より効力を生じるものとします。
                 </p>
               </section>
+
             </div>
-            <div className="mt-4 pt-3 border-t border-neutral-800 flex justify-end">
+
+            <div className="mt-4 pt-3.5 border-t border-neutral-800 flex items-center justify-between">
+              <span className="text-[11px] text-neutral-500 font-sans">Echoes 運営管理</span>
               <button
                 onClick={() => setShowPolicy(false)}
-                className="px-5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-full text-xs font-sans transition-colors"
+                className="px-6 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 font-medium rounded-full text-xs font-sans transition-colors shadow-sm"
               >
-                閉じる
+                同意して閉じる
               </button>
             </div>
           </div>
