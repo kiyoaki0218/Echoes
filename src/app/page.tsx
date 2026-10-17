@@ -3,8 +3,8 @@
 import { useEffect, useState, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getActiveAnnouncements, getChangelogList, type Announcement, type ChangelogItem } from "@/app/actions/admin";
-import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight, Star, Quote, Shield, History } from "lucide-react";
+import { getActiveAnnouncements, getChangelogList, submitFeedback, type Announcement, type ChangelogItem, type FeedbackCategory } from "@/app/actions/admin";
+import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight, Star, Quote, Shield, History, MessageSquareHeart, Send, Check } from "lucide-react";
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
@@ -786,6 +786,13 @@ function HomeContent() {
   const [changelogLoading, setChangelogLoading] = useState<boolean>(false);
   const [expandedChangelogIdx, setExpandedChangelogIdx] = useState<Set<number>>(new Set([0]));
 
+  // 意見（フィードバック）フォーム
+  const [showFeedback, setShowFeedback] = useState<boolean>(false);
+  const [feedbackCategory, setFeedbackCategory] = useState<FeedbackCategory>("opinion");
+  const [feedbackContent, setFeedbackContent] = useState<string>("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState<boolean>(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState<boolean>(false);
+
   const maxChars = formMode === "bubble" ? 60 : 800;
 
   // ID指定でメイン画面に投稿を表示（引用元ジャンプ用など）
@@ -1048,6 +1055,30 @@ function HomeContent() {
       next.has(idx) ? next.delete(idx) : next.add(idx);
       return next;
     });
+  };
+
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackContent.trim() || feedbackSubmitting) return;
+    try {
+      setFeedbackSubmitting(true);
+      const res = await submitFeedback(feedbackCategory, feedbackContent);
+      if (res.error) {
+        alert(res.error);
+        return;
+      }
+      setFeedbackSuccess(true);
+      setTimeout(() => {
+        setFeedbackSuccess(false);
+        setShowFeedback(false);
+        setFeedbackContent("");
+        setFeedbackCategory("opinion");
+      }, 1800);
+    } catch {
+      alert("送信に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setFeedbackSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1547,6 +1578,14 @@ function HomeContent() {
             <History className="w-3 h-3" />
             <span>更新履歴</span>
           </button>
+          <span className="text-neutral-700">|</span>
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="hover:text-neutral-300 transition-colors border-b border-transparent hover:border-neutral-700 pb-0.5 flex items-center gap-1"
+          >
+            <MessageSquareHeart className="w-3 h-3" />
+            <span>ご意見</span>
+          </button>
         </div>
         <button
           onClick={openForm}
@@ -1911,6 +1950,105 @@ function HomeContent() {
                 同意して閉じる
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 意見（フィードバック）フォーム モーダル */}
+      {showFeedback && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg bg-neutral-900/95 border border-neutral-800 rounded-2xl p-5 sm:p-7 flex flex-col max-h-[90dvh] relative shadow-2xl">
+            <button
+              onClick={() => setShowFeedback(false)}
+              className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800/60 transition-colors p-1.5 rounded-lg"
+              title="閉じる"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-3 border-b border-neutral-800/80 pb-3">
+              <div className="p-2 rounded-lg bg-neutral-800/50 border border-neutral-700/50 text-neutral-300">
+                <MessageSquareHeart className="w-4 h-4 text-rose-400" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg tracking-widest text-neutral-100 font-serif">ご意見・ご要望</h2>
+                <p className="text-[10px] sm:text-[11px] text-neutral-500 font-sans mt-0.5">匿名で開発・運営者へ送信されます</p>
+              </div>
+            </div>
+
+            {feedbackSuccess ? (
+              <div className="py-12 flex flex-col items-center justify-center text-center space-y-3 font-sans animate-fade-in">
+                <div className="w-12 h-12 rounded-full bg-emerald-950/60 border border-emerald-700/60 flex items-center justify-center text-emerald-400">
+                  <Check className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-medium text-neutral-200">ご意見を送信しました</h3>
+                <p className="text-xs text-neutral-500 max-w-xs leading-relaxed">
+                  貴重なお声をありがとうございます。今後のサービス改善の参考とさせていただきます。
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleFeedbackSubmit} className="flex flex-col flex-1 overflow-hidden font-sans">
+                {/* カテゴリ選択 */}
+                <div className="mb-4">
+                  <label className="block text-[11px] text-neutral-400 mb-2 font-medium">種別を選択:</label>
+                  <div className="grid grid-cols-4 gap-1.5 text-xs">
+                    {(
+                      [
+                        { id: "opinion", label: "ご意見" },
+                        { id: "request", label: "機能要望" },
+                        { id: "bug",     label: "不具合" },
+                        { id: "other",   label: "その他" },
+                      ] as const
+                    ).map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setFeedbackCategory(cat.id)}
+                        className={`py-1.5 px-2 rounded-lg text-center transition-all border text-[11px] ${feedbackCategory === cat.id ? "bg-neutral-800 text-neutral-100 border-neutral-600 font-medium shadow-sm" : "bg-neutral-950/50 text-neutral-500 border-neutral-800/80 hover:text-neutral-300 hover:border-neutral-700"}`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 本文入力 */}
+                <div className="flex-1 flex flex-col mb-4">
+                  <label className="block text-[11px] text-neutral-400 mb-1.5 font-medium">内容:</label>
+                  <textarea
+                    value={feedbackContent}
+                    onChange={(e) => setFeedbackContent(e.target.value)}
+                    maxLength={1000}
+                    rows={6}
+                    placeholder="サービスへのご感想、改善のご要望、不具合の詳細などをご自由にお書きください..."
+                    required
+                    className="w-full flex-1 p-3.5 bg-neutral-950/70 border border-neutral-800 rounded-xl text-xs sm:text-sm text-neutral-200 placeholder-neutral-600 outline-none focus:border-neutral-600 transition-colors resize-none leading-relaxed"
+                  />
+                  <div className="flex justify-between items-center text-[10px] text-neutral-500 mt-1.5">
+                    <span>アカウント不要・完全匿名</span>
+                    <span>{feedbackContent.length} / 1000 文字</span>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-neutral-800/80 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowFeedback(false)}
+                    className="px-4 py-1.5 text-neutral-500 hover:text-neutral-300 text-xs transition-colors"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={feedbackSubmitting || !feedbackContent.trim()}
+                    className="flex items-center gap-1.5 px-5 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-950 disabled:bg-neutral-800 disabled:text-neutral-600 rounded-full text-xs font-medium transition-all shadow-sm active:scale-95"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{feedbackSubmitting ? "送信中..." : "送信する"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

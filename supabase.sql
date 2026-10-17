@@ -265,3 +265,28 @@ $$ language plpgsql;
 alter table echoes add column if not exists quoted_id uuid;
 alter table echoes add column if not exists quoted_content text;
 alter table echoes add column if not exists quoted_mode text;
+
+-- =============================================
+-- フィードバック・意見フォーム (feedbacks) テーブル
+-- =============================================
+create table if not exists feedbacks (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  category text not null check (category in ('opinion', 'request', 'bug', 'other')),
+  content text not null,
+  status text default 'unread' not null check (status in ('unread', 'read', 'resolved'))
+);
+
+alter table feedbacks enable row level security;
+
+drop policy if exists "Allow public insert feedbacks" on feedbacks;
+create policy "Allow public insert feedbacks" on feedbacks for insert with check (true);
+
+drop policy if exists "Allow public select feedbacks" on feedbacks;
+create policy "Allow public select feedbacks" on feedbacks for select using (true);
+
+drop policy if exists "Allow public update feedbacks" on feedbacks;
+create policy "Allow public update feedbacks" on feedbacks for update using (true);
+
+drop policy if exists "Allow public delete feedbacks" on feedbacks;
+create policy "Allow public delete feedbacks" on feedbacks for delete using (true);

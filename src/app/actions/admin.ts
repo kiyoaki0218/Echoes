@@ -437,3 +437,64 @@ export async function getChangelogList(): Promise<ChangelogItem[]> {
     return [];
   }
 }
+
+// =============================================
+// フィードバック管理 (Feedbacks)
+// =============================================
+
+export type FeedbackCategory = "opinion" | "request" | "bug" | "other";
+export type FeedbackStatus = "unread" | "read" | "resolved";
+
+export type FeedbackItem = {
+  id: string;
+  created_at: string;
+  category: FeedbackCategory;
+  content: string;
+  status: FeedbackStatus;
+};
+
+export async function submitFeedback(category: FeedbackCategory, content: string) {
+  if (!content.trim()) return { error: "内容を入力してください。" };
+  const { error } = await supabase
+    .from("feedbacks")
+    .insert([{ category, content: content.trim() }]);
+  if (error) {
+    console.error("Error submitting feedback:", error);
+    return { error: "送信に失敗しました。" };
+  }
+  return { success: true };
+}
+
+export async function getAdminFeedbacks(): Promise<FeedbackItem[]> {
+  const { data, error } = await supabase
+    .from("feedbacks")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Error getting feedbacks:", error);
+    return [];
+  }
+  return (data || []) as FeedbackItem[];
+}
+
+export async function updateFeedbackStatus(id: string, status: FeedbackStatus) {
+  const role = await getAdminRole();
+  if (role !== "admin") throw new Error("権限がありません");
+  const { error } = await supabase
+    .from("feedbacks")
+    .update({ status })
+    .eq("id", id);
+  if (error) throw error;
+  return { success: true };
+}
+
+export async function deleteFeedback(id: string) {
+  const role = await getAdminRole();
+  if (role !== "admin") throw new Error("権限がありません");
+  const { error } = await supabase
+    .from("feedbacks")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+  return { success: true };
+}

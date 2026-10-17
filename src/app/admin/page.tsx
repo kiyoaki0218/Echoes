@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, togglePromoteEcho, updateEchoMaxViews, type Announcement } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, togglePromoteEcho, updateEchoMaxViews, getAdminFeedbacks, updateFeedbackStatus, deleteFeedback, type Announcement, type FeedbackItem, type FeedbackStatus } from "@/app/actions/admin";
 import {
-  Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp,
+  Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, MessageSquareHeart, CheckCircle2, Clock3,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
   Zap, Search, X, Menu, ExternalLink,
   ArrowUpDown, ArrowUp, ArrowDown, Flag, RotateCcw, ShieldAlert,
@@ -68,7 +68,10 @@ export default function AdminDashboard() {
   const [searchOpen, setSearchOpen] = useState(false);
 
   // ページタブ: "echoes" | "announcements"
-  const [pageTab, setPageTab] = useState<"echoes" | "announcements">("echoes");
+  const [pageTab, setPageTab] = useState<"echoes" | "announcements" | "feedbacks">("echoes");
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState<boolean>(false);
+  const [feedbackFilter, setFeedbackFilter] = useState<string>("all");
 
   // 投稿フォームモーダル
   const [postModalOpen, setPostModalOpen] = useState(false);
@@ -138,6 +141,41 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (pageTab === "announcements") fetchAnnouncements();
   }, [pageTab, fetchAnnouncements]);
+
+  const fetchFeedbacks = useCallback(async () => {
+    setFeedbacksLoading(true);
+    try {
+      const data = await getAdminFeedbacks();
+      setFeedbacks(data);
+    } catch {
+      // error handling
+    } finally {
+      setFeedbacksLoading(false);
+    }
+  }, []);
+
+  const handleUpdateFeedbackStatus = async (id: string, nextStatus: FeedbackStatus) => {
+    try {
+      await updateFeedbackStatus(id, nextStatus);
+      setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status: nextStatus } : f));
+    } catch (err: any) {
+      alert(err.message || "ステータス更新に失敗しました");
+    }
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    if (!confirm("このご意見を削除しますか？")) return;
+    try {
+      await deleteFeedback(id);
+      setFeedbacks(prev => prev.filter(f => f.id !== id));
+    } catch (err: any) {
+      alert(err.message || "削除に失敗しました");
+    }
+  };
+
+  useEffect(() => {
+    if (pageTab === "feedbacks") fetchFeedbacks();
+  }, [pageTab, fetchFeedbacks]);
 
   // ISO文字列 → datetime-local 入力値に変換
   const toDatetimeLocal = (iso: string) => {
@@ -508,6 +546,16 @@ export default function AdminDashboard() {
           >
             <Megaphone className="w-4 h-4" />
             公式お知らせ
+          </button>
+          <button
+            onClick={() => setPageTab("feedbacks")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${pageTab === "feedbacks" ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"}`}
+          >
+            <MessageSquareHeart className="w-4 h-4" />
+            ご意見・ご要望
+            {feedbacks.filter(f => f.status === "unread").length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+            )}
           </button>
         </div>
 
@@ -1060,6 +1108,111 @@ export default function AdminDashboard() {
                 })}
               </div>
             )}
+          </div>
+        )} {/* end pageTab === "announcements" */}
+
+        {/* ===== ご意見・フィードバック管理タブ ===== */}
+        {pageTab === "feedbacks" && (
+          <div className="font-sans">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div>
+                <h2 className="text-base font-medium text-neutral-200 flex items-center gap-2">
+                  <MessageSquareHeart className="w-4 h-4 text-rose-400" />
+                  ユーザーのご意見・ご要望一覧
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">ユーザーから匿名で寄せられたご意見や不具合報告を確認できます。</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchFeedbacks}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg hover:bg-neutral-800 transition-colors text-sm text-neutral-300"
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                  <span>更新</span>
+                </button>
+              </div>
+            </div>
+
+            {/* フィルター */}
+            <div className="flex gap-2 mb-4 text-xs">
+              {(["all", "unread", "read", "resolved"] as const).map(st => {
+                const count = st === "all" ? feedbacks.length : feedbacks.filter(f => f.status === st).length;
+                const label = st === "all" ? "すべて" : st === "unread" ? "未読" : st === "read" ? "既読" : "対応済み";
+                return (
+                  <button
+                    key={st}
+                    onClick={() => setFeedbackFilter(st)}
+                    className={`px-3 py-1.5 rounded-lg border transition-colors ${feedbackFilter === st ? "bg-neutral-800 text-neutral-100 border-neutral-700 font-medium" : "bg-neutral-900/60 border-neutral-800 text-neutral-400 hover:text-neutral-200"}`}
+                  >
+                    {label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            {feedbacksLoading ? (
+              <div className="text-center py-16 text-neutral-500 text-sm tracking-widest">読み込み中...</div>
+            ) : feedbacks.length === 0 ? (
+              <div className="text-center py-16 text-neutral-500 text-sm">ご意見はまだ届いていません。</div>
+            ) : (
+              <div className="space-y-3">
+                {feedbacks
+                  .filter(f => feedbackFilter === "all" || f.status === feedbackFilter)
+                  .map(f => {
+                    const categoryBadge = {
+                      opinion: { label: "ご意見",   color: "bg-blue-950/40 text-blue-300 border-blue-800/40" },
+                      request: { label: "機能要望", color: "bg-purple-950/40 text-purple-300 border-purple-800/40" },
+                      bug:     { label: "不具合",   color: "bg-rose-950/40 text-rose-300 border-rose-800/40" },
+                      other:   { label: "その他",   color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
+                    }[f.category] || { label: f.category, color: "bg-neutral-800 text-neutral-400 border-neutral-700" };
+
+                    return (
+                      <div key={f.id} className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 transition-colors">
+                        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${categoryBadge.color}`}>
+                              {categoryBadge.label}
+                            </span>
+                            <span className="text-xs text-neutral-500">
+                              {new Date(f.created_at).toLocaleString("ja-JP")}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {/* ステータス切り替え */}
+                            <select
+                              value={f.status}
+                              disabled={role !== "admin"}
+                              onChange={(e) => handleUpdateFeedbackStatus(f.id, e.target.value as FeedbackStatus)}
+                              className="text-xs px-2.5 py-1 bg-neutral-950 border border-neutral-700 rounded-lg text-neutral-300 outline-none focus:border-neutral-500"
+                            >
+                              <option value="unread">未読</option>
+                              <option value="read">既読</option>
+                              <option value="resolved">対応済み</option>
+                            </select>
+
+                            {role === "admin" && (
+                              <button
+                                onClick={() => handleDeleteFeedback(f.id)}
+                                className="p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"
+                                title="削除"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-neutral-300 whitespace-pre-wrap font-sans leading-relaxed break-words bg-neutral-950/40 p-3 rounded-lg border border-neutral-900">
+                          {f.content}
+                        </p>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        )}
 
             {/* お知らせ作成・編集モーダル */}
             {annModalOpen && (
@@ -1164,8 +1317,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
-          </div>
-        )}
 
         {/* ===== 投稿フォームモーダル ===== */}
         {postModalOpen && (
