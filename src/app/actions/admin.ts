@@ -398,3 +398,42 @@ export async function updateEchoMaxViews(id: string, maxViews: number) {
   if (error) throw new Error("寿命の更新に失敗しました");
   return { success: true };
 }
+
+export type ChangelogItem = {
+  version: string;
+  title: string;
+  summary: string;
+};
+
+export async function getChangelogList(): Promise<ChangelogItem[]> {
+  try {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    const filePath = path.join(process.cwd(), "CHANGELOG.md");
+    const text = await fs.readFile(filePath, "utf8");
+    const sections = text.split(/\r?\n###\s+/).slice(1);
+    return sections.map(sec => {
+      const lines = sec.split(/\r?\n/);
+      const version = lines[0].trim();
+      let title = "";
+      let summary = [];
+      let inSummary = false;
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith("#### ")) {
+          title = line.replace("#### ", "").trim();
+        } else if (line.includes("**わかりやすい編集内容**:")) {
+          inSummary = true;
+        } else if (line.includes("**具体的なプログラムの編集内容**:") || line.startsWith("### ") || line.startsWith("---")) {
+          inSummary = false;
+        } else if (inSummary && line.trim()) {
+          summary.push(line);
+        }
+      }
+      return { version, title, summary: summary.join("\n") };
+    });
+  } catch (err) {
+    console.error("Error reading CHANGELOG.md:", err);
+    return [];
+  }
+}

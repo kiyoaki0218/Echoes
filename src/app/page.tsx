@@ -3,8 +3,8 @@
 import { useEffect, useState, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getActiveAnnouncements, type Announcement } from "@/app/actions/admin";
-import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight, Star, Quote } from "lucide-react";
+import { getActiveAnnouncements, getChangelogList, type Announcement, type ChangelogItem } from "@/app/actions/admin";
+import { PenTool, X, Heart, Trash2, ChevronDown, ChevronUp, ExternalLink, Search, Flag, Megaphone, Pin, ChevronLeft, ChevronRight, Star, Quote, Shield, History } from "lucide-react";
 
 type Mode = "bubble" | "will";
 type DisplayMode = "all" | "bubble" | "will";
@@ -684,6 +684,7 @@ function FormattedContent({
       {mediaEmbeds.map((embed, idx) => (
         <MediaEmbedItem key={idx} embed={embed} />
       ))}
+
     </div>
   );
 }
@@ -777,6 +778,13 @@ function HomeContent() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [annIndex, setAnnIndex] = useState(0); // 複数ある場合のカルーセル位置
   const [annExpanded, setAnnExpanded] = useState(false); // 展開/折りたたみ
+
+  // プライバシーポリシー & 変更履歴モーダル
+  const [showPolicy, setShowPolicy] = useState<boolean>(false);
+  const [showChangelog, setShowChangelog] = useState<boolean>(false);
+  const [changelogList, setChangelogList] = useState<ChangelogItem[]>([]);
+  const [changelogLoading, setChangelogLoading] = useState<boolean>(false);
+  const [expandedChangelogIdx, setExpandedChangelogIdx] = useState<Set<number>>(new Set([0]));
 
   const maxChars = formMode === "bubble" ? 60 : 800;
 
@@ -1021,6 +1029,25 @@ function HomeContent() {
     setMyListTab("all");
     setShowMyList(true);
     fetchMyEchoesStatus();
+  };
+
+  const openChangelogModal = () => {
+    setShowChangelog(true);
+    if (changelogList.length === 0) {
+      setChangelogLoading(true);
+      getChangelogList()
+        .then(data => setChangelogList(data))
+        .catch(() => {})
+        .finally(() => setChangelogLoading(false));
+    }
+  };
+
+  const toggleChangelogExpand = (idx: number) => {
+    setExpandedChangelogIdx(prev => {
+      const next = new Set(prev);
+      next.has(idx) ? next.delete(idx) : next.add(idx);
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1496,16 +1523,34 @@ function HomeContent() {
       </main>
 
       {/* フッター */}
-      <footer className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8 flex justify-between items-center z-20 shrink-0" onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={openMyList}
-          className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors font-sans tracking-wider border-b border-transparent hover:border-neutral-700 pb-0.5"
-        >
-          自分の残響
-        </button>
+      <footer className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-5 flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-4 z-20 shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 sm:gap-4 text-[11px] sm:text-xs text-neutral-500 font-sans tracking-wider order-2 sm:order-1">
+          <button
+            onClick={openMyList}
+            className="hover:text-neutral-300 transition-colors border-b border-transparent hover:border-neutral-700 pb-0.5"
+          >
+            自分の残響
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button
+            onClick={() => setShowPolicy(true)}
+            className="hover:text-neutral-300 transition-colors border-b border-transparent hover:border-neutral-700 pb-0.5 flex items-center gap-1"
+          >
+            <Shield className="w-3 h-3" />
+            <span>ポリシー</span>
+          </button>
+          <span className="text-neutral-700">|</span>
+          <button
+            onClick={openChangelogModal}
+            className="hover:text-neutral-300 transition-colors border-b border-transparent hover:border-neutral-700 pb-0.5 flex items-center gap-1"
+          >
+            <History className="w-3 h-3" />
+            <span>更新履歴</span>
+          </button>
+        </div>
         <button
           onClick={openForm}
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-100 text-neutral-950 rounded-full text-xs font-sans font-medium hover:bg-neutral-200 transition-all active:scale-95 shadow-md"
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-100 text-neutral-950 rounded-full text-xs font-sans font-medium hover:bg-neutral-200 transition-all active:scale-95 shadow-md order-1 sm:order-2"
         >
           <PenTool className="w-3.5 h-3.5" />
           <span>投稿する</span>
@@ -1720,6 +1765,135 @@ function HomeContent() {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* プライバシーポリシー モーダル */}
+      {showPolicy && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col max-h-[85dvh] relative">
+            <button onClick={() => setShowPolicy(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300 transition-colors p-1">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-4 h-4 text-neutral-400" />
+              <h2 className="text-base sm:text-lg tracking-widest text-neutral-200 font-light">プライバシーポリシー</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs sm:text-sm text-neutral-300 font-sans leading-relaxed scrollbar-thin">
+              <section className="space-y-1.5">
+                <h3 className="font-medium text-neutral-200 text-sm">1. はじめに</h3>
+                <p className="text-neutral-400 text-xs">
+                  当サービス「Echoes（残響）」は、言葉の儚さと静寂な繋がりを大切にする匿名テキストSNSです。本ポリシーでは、利用者のプライバシー情報の取り扱いについて定めます。
+                </p>
+              </section>
+
+              <section className="space-y-1.5">
+                <h3 className="font-medium text-neutral-200 text-sm">2. 取得する情報と利用目的</h3>
+                <ul className="list-disc list-inside space-y-1 text-neutral-400 text-xs pl-1">
+                  <li><strong>投稿テキスト・モード情報:</strong> サービス内でのランダム表示、共鳴、引用機能の提供のために利用します。</li>
+                  <li><strong>ブラウザローカルデータ (LocalStorage):</strong> 「自分の残響」一覧の保持、共鳴済み・通報済み状態の判定のために端末内に保存されます。サーバー側で個人を特定・追跡するアカウント情報は保持しません。</li>
+                  <li><strong>アクセスログ・統計情報:</strong> サービスの安定稼働、表示回数上限による自動物理削除、不正利用・スパム通報の管理のために集計利用します。</li>
+                </ul>
+              </section>
+
+              <section className="space-y-1.5">
+                <h3 className="font-medium text-neutral-200 text-sm">3. 投稿の寿命と物理削除（消滅）</h3>
+                <p className="text-neutral-400 text-xs">
+                  Echoesの特徴として、投稿は規定の表示上限回数（初期100回、共鳴により延長）に達した時点で、サーバー上から完全に自動物理削除されます。消滅した投稿の復元は行われません。
+                </p>
+              </section>
+
+              <section className="space-y-1.5">
+                <h3 className="font-medium text-neutral-200 text-sm">4. 外部メディアの埋め込みについて</h3>
+                <p className="text-neutral-400 text-xs">
+                  投稿内にYouTube、Spotify、X等のURLが含まれる場合、各サービスの規約に基づくインライン埋め込み表示を行います。これらの外部サービスがCookie等を通じて情報を収集する場合があります。
+                </p>
+              </section>
+
+              <section className="space-y-1.5">
+                <h3 className="font-medium text-neutral-200 text-sm">5. お問い合わせ・通報</h3>
+                <p className="text-neutral-400 text-xs">
+                  不適切な投稿を発見された場合は、投稿画面の「通報」ボタンよりお知らせください。管理者が定期的に確認し、必要に応じて削除等の措置を講じます。
+                </p>
+              </section>
+            </div>
+            <div className="mt-4 pt-3 border-t border-neutral-800 flex justify-end">
+              <button
+                onClick={() => setShowPolicy(false)}
+                className="px-5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-full text-xs font-sans transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* バージョンアップ履歴（変更履歴） モーダル */}
+      {showChangelog && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-xl bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col max-h-[85dvh] relative">
+            <button onClick={() => setShowChangelog(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300 transition-colors p-1">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 mb-4">
+              <History className="w-4 h-4 text-neutral-400" />
+              <h2 className="text-base sm:text-lg tracking-widest text-neutral-200 font-light">バージョンアップ履歴</h2>
+            </div>
+            <p className="text-xs text-neutral-500 font-sans mb-3">
+              Echoes（残響）の機能改善および更新履歴の一覧です。
+            </p>
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3 font-sans scrollbar-thin">
+              {changelogLoading ? (
+                <div className="text-center py-12 text-neutral-500 text-xs tracking-widest animate-pulse">
+                  更新履歴を取得中...
+                </div>
+              ) : changelogList.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-xs">
+                  更新履歴がありません。
+                </div>
+              ) : (
+                changelogList.map((item, idx) => {
+                  const isExpanded = expandedChangelogIdx.has(idx);
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-neutral-950/60 border border-neutral-800/80 rounded-xl overflow-hidden transition-colors"
+                    >
+                      <button
+                        onClick={() => toggleChangelogExpand(idx)}
+                        className="w-full px-4 py-3 text-left flex items-start justify-between gap-3 hover:bg-neutral-800/30 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] text-neutral-400 font-medium px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 inline-block mb-1">
+                            {item.version}
+                          </span>
+                          <h3 className="text-xs sm:text-sm font-medium text-neutral-200 break-words">
+                            {item.title}
+                          </h3>
+                        </div>
+                        <div className="text-neutral-500 p-1 shrink-0">
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </div>
+                      </button>
+                      {isExpanded && item.summary && (
+                        <div className="px-4 pb-3.5 pt-1 text-xs text-neutral-400 border-t border-neutral-900/80 leading-relaxed whitespace-pre-wrap font-sans">
+                          {item.summary}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="mt-4 pt-3 border-t border-neutral-800 flex justify-end">
+              <button
+                onClick={() => setShowChangelog(false)}
+                className="px-5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-full text-xs font-sans transition-colors"
+              >
+                閉じる
+              </button>
             </div>
           </div>
         </div>
