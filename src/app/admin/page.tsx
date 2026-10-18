@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, togglePromoteEcho, updateEchoMaxViews, getAdminFeedbacks, updateFeedbackStatus, deleteFeedback, type Announcement, type FeedbackItem, type FeedbackStatus } from "@/app/actions/admin";
+import { getAdminEchoes, deleteAdminEcho, logoutAdmin, getAdminStats, getAdminRole, resetAdminReport, createAdminEcho, getAdminAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, purgeExpiredAnnouncements, togglePromoteEcho, updateEchoMaxViews, getAdminFeedbacks, updateFeedbackStatus, deleteFeedback, getDailyTrends, getLifecycleSummary, getPrEffect, getBoostStats, type Announcement, type FeedbackItem, type FeedbackStatus, type DailyTrend, type LifecycleSummary, type PrEffect, type BoostStats } from "@/app/actions/admin";
 import {
   Trash2, LogOut, RefreshCcw, ChevronDown, ChevronUp, MessageSquareHeart, CheckCircle2, Clock3,
   ChevronLeft, ChevronRight, FileText, BarChart2, Heart,
@@ -67,8 +67,8 @@ export default function AdminDashboard() {
   // モバイル: 検索パネルの開閉
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // ページタブ: "echoes" | "announcements"
-  const [pageTab, setPageTab] = useState<"echoes" | "announcements" | "feedbacks">("echoes");
+  // ページタブ: "echoes" | "announcements" | "feedbacks" | "analytics"
+  const [pageTab, setPageTab] = useState<"echoes" | "announcements" | "feedbacks" | "analytics">("echoes");
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [feedbacksLoading, setFeedbacksLoading] = useState<boolean>(false);
   const [feedbackFilter, setFeedbackFilter] = useState<string>("all");
@@ -176,6 +176,39 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (pageTab === "feedbacks") fetchFeedbacks();
   }, [pageTab, fetchFeedbacks]);
+
+  // =============================================
+  // 分析（Phase 6）
+  // =============================================
+  const [trends, setTrends] = useState<DailyTrend[]>([]);
+  const [lifecycle, setLifecycle] = useState<LifecycleSummary | null>(null);
+  const [prEffect, setPrEffect] = useState<PrEffect | null>(null);
+  const [boostStats, setBoostStats] = useState<BoostStats | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [trendDays, setTrendDays] = useState<number>(30);
+
+  const fetchAnalytics = useCallback(async (days: number) => {
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+    try {
+      const [t, l, p, b] = await Promise.all([
+        getDailyTrends(days),
+        getLifecycleSummary(),
+        getPrEffect(),
+        getBoostStats(),
+      ]);
+      setTrends(t);
+      setLifecycle(l);
+      setPrEffect(p);
+      setBoostStats(b);
+    } catch (err) {
+      setAnalyticsError(err instanceof Error ? err.message : "分析データの取得に失敗しました");
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
 
   // ISO文字列 → datetime-local 入力値に変換
   const toDatetimeLocal = (iso: string) => {
@@ -556,6 +589,13 @@ export default function AdminDashboard() {
             {feedbacks.filter(f => f.status === "unread").length > 0 && (
               <span className="w-2 h-2 rounded-full bg-rose-500"></span>
             )}
+          </button>
+          <button
+            onClick={() => { setPageTab("analytics"); fetchAnalytics(trendDays); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${pageTab === "analytics" ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"}`}
+          >
+            <BarChart2 className="w-4 h-4" />
+            分析
           </button>
         </div>
 
@@ -1209,6 +1249,304 @@ export default function AdminDashboard() {
                       </div>
                     );
                   })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== 分析タブ ===== */}
+        {pageTab === "analytics" && (
+          <div className="font-sans">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div>
+                <h2 className="text-base font-medium text-neutral-200 flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-blue-400" />
+                  分析ダッシュボード
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">日次推移・寿命分布・PR効果・露出の偏りを確認できます。</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex bg-neutral-900/60 border border-neutral-800 rounded-lg p-0.5 gap-0.5">
+                  {[7, 30, 90].map(d => (
+                    <button
+                      key={d}
+                      onClick={() => { setTrendDays(d); fetchAnalytics(d); }}
+                      className={`px-2.5 py-1.5 rounded text-xs transition-colors ${trendDays === d ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"}`}
+                    >
+                      {d}日
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => fetchAnalytics(trendDays)}
+                  disabled={analyticsLoading}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg hover:bg-neutral-800 disabled:opacity-50 transition-colors text-sm text-neutral-300"
+                >
+                  <RefreshCcw className={`w-4 h-4 ${analyticsLoading ? "animate-spin" : ""}`} />
+                  <span>更新</span>
+                </button>
+              </div>
+            </div>
+
+            {analyticsError && (
+              <div className="text-xs text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2 mb-4">
+                {analyticsError}
+              </div>
+            )}
+
+            {analyticsLoading ? (
+              <div className="text-center py-16 text-neutral-500 text-sm tracking-widest">読み込み中...</div>
+            ) : (
+              <div className="space-y-6">
+                {/* --- 日別推移グラフ --- */}
+                <section className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 md:p-5">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h3 className="text-sm font-medium text-neutral-200">日別推移（直近{trendDays}日 · JST基準）</h3>
+                    <div className="flex items-center gap-3 text-[11px] text-neutral-400">
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500" />表示</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-400" />共鳴</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />投稿</span>
+                      <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-purple-400" />消滅</span>
+                    </div>
+                  </div>
+                  {trends.length === 0 ? (
+                    <p className="text-xs text-neutral-500 py-8 text-center">該当期間のデータがありません。</p>
+                  ) : (() => {
+                    const maxViews = Math.max(1, ...trends.map(t => Number(t.views)));
+                    const maxRes = Math.max(1, ...trends.map(t => Number(t.resonances)));
+                    const maxPosts = Math.max(1, ...trends.map(t => Number(t.posts)));
+                    const maxDeaths = Math.max(1, ...trends.map(t => Number(t.deaths)));
+                    const h = (v: number, m: number) => `${Math.max(Number(v) > 0 ? 4 : 0, (Number(v) / m) * 100)}%`;
+                    return (
+                      <>
+                        <div className="flex items-end gap-[3px] h-40 overflow-x-auto pb-1 border-b border-neutral-800">
+                          {trends.map(t => (
+                            <div key={t.day} className="flex items-end gap-[2px] h-full min-w-[10px] flex-1" title={`${t.day} — 表示 ${t.views} / 共鳴 ${t.resonances} / 投稿 ${t.posts} / 消滅 ${t.deaths}`}>
+                              <div className="flex-1 bg-blue-500/80 rounded-t-sm" style={{ height: h(t.views, maxViews) }} />
+                              <div className="flex-1 bg-red-400/80 rounded-t-sm" style={{ height: h(t.resonances, maxRes) }} />
+                              <div className="flex-1 bg-emerald-500/80 rounded-t-sm" style={{ height: h(t.posts, maxPosts) }} />
+                              <div className="flex-1 bg-purple-400/80 rounded-t-sm" style={{ height: h(t.deaths, maxDeaths) }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-[10px] text-neutral-600 mt-1">
+                          <span>{trends[0]?.day.slice(5).replace("-", "/")}</span>
+                          <span>{trends[Math.floor(trends.length / 2)]?.day.slice(5).replace("-", "/")}</span>
+                          <span>{trends[trends.length - 1]?.day.slice(5).replace("-", "/")}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </section>
+
+                {/* --- 寿命サマリー --- */}
+                {lifecycle && (
+                  <section className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 md:p-5">
+                    <h3 className="text-sm font-medium text-neutral-200 mb-3">寿命サマリー（消滅した投稿 {lifecycle.total_died} 件）</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      {[
+                        { label: "平均 最終表示数", value: Number(lifecycle.avg_final_views).toFixed(1) },
+                        { label: "最大表示数",       value: Number(lifecycle.max_final_views).toLocaleString() },
+                        { label: "平均生存時間",     value: `${(Number(lifecycle.avg_lifespan_hours) / 24).toFixed(1)}日` },
+                        { label: "寿命完遂率",       value: boostStats ? `${boostStats.full_life_ratio}%` : "—" },
+                      ].map(c => (
+                        <div key={c.label} className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+                          <p className="text-[11px] text-neutral-500 mb-1">{c.label}</p>
+                          <p className="text-lg font-light text-neutral-100">{c.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {/* 消滅理由 */}
+                      <div>
+                        <p className="text-xs text-neutral-400 mb-2">消滅理由の内訳</p>
+                        {lifecycle.by_reason.length === 0 ? <p className="text-xs text-neutral-600">データなし</p> : (
+                          <div className="space-y-1.5">
+                            {lifecycle.by_reason.map(r => {
+                              const total = lifecycle.total_died || 1;
+                              const pct = Math.round((r.count / total) * 100);
+                              return (
+                                <div key={r.reason} className="text-xs">
+                                  <div className="flex justify-between text-neutral-400 mb-0.5">
+                                    <span>{r.reason === "view_limit" ? "寿命到達" : r.reason === "deleted" ? "管理者削除" : r.reason}</span>
+                                    <span className="tabular-nums">{r.count}件（{pct}%）</span>
+                                  </div>
+                                  <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-amber-500/70 rounded-full" style={{ width: `${pct}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* モード別 */}
+                      <div>
+                        <p className="text-xs text-neutral-400 mb-2">モード別</p>
+                        <div className="space-y-1.5 text-xs">
+                          {lifecycle.by_mode.map(m => (
+                            <div key={m.mode} className="flex justify-between bg-neutral-950/40 border border-neutral-800 rounded-lg px-3 py-2">
+                              <span className="text-neutral-300">{m.mode === "bubble" ? "泡沫" : "遺言"}</span>
+                              <span className="text-neutral-500 tabular-nums">{m.count}件 · 平均{Number(m.avg_final_views).toFixed(1)}表示</span>
+                            </div>
+                          ))}
+                          {lifecycle.by_mode.length === 0 && <p className="text-neutral-600">データなし</p>}
+                        </div>
+                      </div>
+
+                      {/* 表示数分布 */}
+                      <div>
+                        <p className="text-xs text-neutral-400 mb-2">最終表示数の分布</p>
+                        {(() => {
+                          const max = Math.max(1, ...lifecycle.view_distribution.map(v => v.count));
+                          return (
+                            <div className="space-y-1.5">
+                              {lifecycle.view_distribution.map(v => (
+                                <div key={v.bucket} className="text-xs">
+                                  <div className="flex justify-between text-neutral-400 mb-0.5">
+                                    <span>{v.bucket}回</span><span className="tabular-nums">{v.count}件</span>
+                                  </div>
+                                  <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-500/70 rounded-full" style={{ width: `${(v.count / max) * 100}%` }} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* --- PR効果測定 --- */}
+                {prEffect && (
+                  <section className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 md:p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Star className="w-4 h-4 text-amber-400" />
+                      <h3 className="text-sm font-medium text-neutral-200">PR効果測定</h3>
+                      <span className="text-[11px] text-neutral-500">
+                        PR期間 {prEffect.total_periods}件（進行中 {prEffect.active_periods}件）· 対象投稿 {prEffect.pr_posts}件
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <div className="bg-amber-950/20 border border-amber-900/30 rounded-lg p-3">
+                        <p className="text-[11px] text-amber-400/80 mb-1">PR期間中の日次表示リフト</p>
+                        <p className="text-lg font-light text-neutral-100">
+                          {prEffect.lift_daily_views_pct === null ? "—" : `${prEffect.lift_daily_views_pct > 0 ? "+" : ""}${prEffect.lift_daily_views_pct}%`}
+                        </p>
+                      </div>
+                      <div className="bg-amber-950/20 border border-amber-900/30 rounded-lg p-3">
+                        <p className="text-[11px] text-amber-400/80 mb-1">PR期間中の日次共鳴リフト</p>
+                        <p className="text-lg font-light text-neutral-100">
+                          {prEffect.lift_daily_resonances_pct === null ? "—" : `${prEffect.lift_daily_resonances_pct > 0 ? "+" : ""}${prEffect.lift_daily_resonances_pct}%`}
+                        </p>
+                      </div>
+                      <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+                        <p className="text-[11px] text-neutral-500 mb-1">PR期間中の日次表示 平均</p>
+                        <p className="text-lg font-light text-neutral-100 tabular-nums">{Number(prEffect.pr.avg_daily_views)}</p>
+                      </div>
+                      <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+                        <p className="text-[11px] text-neutral-500 mb-1">PR期間中の日次共鳴 平均</p>
+                        <p className="text-lg font-light text-neutral-100 tabular-nums">{Number(prEffect.pr.avg_daily_resonances)}</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-neutral-500 border-b border-neutral-800">
+                            <th className="text-left font-normal py-2 pr-4">比較対象</th>
+                            <th className="text-right font-normal py-2 px-4">観測日数</th>
+                            <th className="text-right font-normal py-2 px-4">総表示</th>
+                            <th className="text-right font-normal py-2 px-4">日次表示 平均</th>
+                            <th className="text-right font-normal py-2 px-4">日次共鳴 平均</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-neutral-300">
+                          {[
+                            { label: "PR期間中（同一投稿）", b: prEffect.pr },
+                            { label: "PR外（同一投稿）",     b: prEffect.non_pr_same_posts },
+                            { label: "参照群（一度もPRしない投稿）", b: prEffect.non_pr_other_posts },
+                          ].map(row => (
+                            <tr key={row.label} className="border-b border-neutral-800/60">
+                              <td className="py-2 pr-4">{row.label}</td>
+                              <td className="py-2 px-4 text-right tabular-nums">{row.b.day_rows}</td>
+                              <td className="py-2 px-4 text-right tabular-nums">{row.b.views.toLocaleString()}</td>
+                              <td className="py-2 px-4 text-right tabular-nums">{Number(row.b.avg_daily_views)}</td>
+                              <td className="py-2 px-4 text-right tabular-nums">{Number(row.b.avg_daily_resonances)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {prEffect.total_periods === 0 && (
+                      <p className="text-[11px] text-neutral-600 mt-2">※ まだPR期間の記録がありません。投稿のプロモーションをONにすると計測が始まります。</p>
+                    )}
+                  </section>
+                )}
+
+                {/* --- 微ブースト効果検証（露出の偏り） --- */}
+                {boostStats && (
+                  <section className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 md:p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Zap className="w-4 h-4 text-emerald-400" />
+                      <h3 className="text-sm font-medium text-neutral-200">微ブースト効果検証（露出の偏り）</h3>
+                      <span className="text-[11px] text-neutral-500">生存中 {boostStats.alive_total} 件</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                      <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+                        <p className="text-[11px] text-neutral-500 mb-1">一度も表示されていない投稿（view=0）</p>
+                        <p className="text-lg font-light text-neutral-100">
+                          {boostStats.never_shown}件
+                          <span className="text-xs text-neutral-500 ml-1.5">
+                            {boostStats.alive_total > 0 ? `${Math.round((boostStats.never_shown / boostStats.alive_total) * 100)}%` : "—"}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+                        <p className="text-[11px] text-neutral-500 mb-1">飢餓投稿（3日経過・2回以下）</p>
+                        <p className="text-lg font-light text-neutral-100">
+                          {boostStats.starved}件
+                          <span className="text-xs text-neutral-500 ml-1.5">
+                            {boostStats.alive_total > 0 ? `${Math.round((boostStats.starved / boostStats.alive_total) * 100)}%` : "—"}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="col-span-2 md:col-span-1 bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+                        <p className="text-[11px] text-neutral-500 mb-1">寿命完遂率（自然消滅の割合）</p>
+                        <p className="text-lg font-light text-neutral-100 tabular-nums">{boostStats.full_life_ratio}%</p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-neutral-400 mb-2">生存中投稿の表示回数分布</p>
+                    {(() => {
+                      const max = Math.max(1, ...boostStats.view_distribution.map(v => v.count));
+                      return (
+                        <div className="flex items-end gap-3 h-32">
+                          {boostStats.view_distribution.map(v => (
+                            <div key={v.bucket} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                              <span className="text-[10px] text-neutral-400 tabular-nums">{v.count}</span>
+                              <div
+                                className="w-full bg-emerald-500/60 rounded-t-sm min-h-[2px]"
+                                style={{ height: `${Math.max((v.count / max) * 100, 2)}%` }}
+                                title={`${v.bucket}回 — ${v.count}件 · 平均経過 ${v.avg_age_days}日`}
+                              />
+                              <span className="text-[10px] text-neutral-500">{v.bucket}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                    <p className="text-[11px] text-neutral-600 mt-3">
+                      ※ ブーストが機能している場合、view=0 ・飢餓投稿は少数に収まり、寿命完遂率が高くなります。
+                    </p>
+                  </section>
+                )}
               </div>
             )}
           </div>

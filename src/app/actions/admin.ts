@@ -349,7 +349,7 @@ export async function purgeExpiredAnnouncements() {
 // プロモーション機能アクション
 // =============================================
 
-/** 投稿のプロモーションフラグを切り替える */
+/** 投稿のプロモーションフラグを切り替える（効果測定のためPR期間も記録） */
 export async function togglePromoteEcho(id: string, isPromoted: boolean) {
   const role = await getAdminRole();
   if (!role) throw new Error("Unauthorized");
@@ -363,6 +363,21 @@ export async function togglePromoteEcho(id: string, isPromoted: boolean) {
   if (error) {
     console.error("Error toggling promotion:", error);
     throw new Error("プロモーションの更新に失敗しました");
+  }
+
+  // 測定: PR期間の開始/終了を記録（失敗してもPR切替本体は成功とする）
+  try {
+    if (isPromoted) {
+      await supabase.from("echo_pr_periods").insert([{ post_id: id }]);
+    } else {
+      await supabase
+        .from("echo_pr_periods")
+        .update({ ended_at: new Date().toISOString() })
+        .eq("post_id", id)
+        .is("ended_at", null);
+    }
+  } catch (periodError) {
+    console.error("Error recording PR period:", periodError);
   }
 
   return { success: true };
@@ -416,7 +431,7 @@ export async function getChangelogList(): Promise<ChangelogItem[]> {
       const lines = sec.split(/\r?\n/);
       const version = lines[0].trim();
       let title = "";
-      let summary = [];
+      const summary = [];
       let inSummary = false;
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
@@ -497,4 +512,106 @@ export async function deleteFeedback(id: string) {
     .eq("id", id);
   if (error) throw error;
   return { success: true };
+}
+
+// =============================================
+// 分析・測定データ (Phase 6 / タスク18) アクション
+// =============================================
+
+export type DailyTrend = {
+  day: string;         // YYYY-MM-DD (JST基準)
+  posts: number;       // その日に作成された投稿数（消滅済み含む）
+  views: number;       // その日の総表示回数
+  resonances: number;  // その日の総共鳴回数
+  deaths: number;      // その日に寿命を迎えた投稿数
+};
+
+export type LifecycleSummary = {
+  total_died: number;
+  avg_final_views: number;
+  max_final_views: number;
+  avg_lifespan_hours: number;
+  by_mode: { mode: string; count: number; avg_final_views: number }[];
+  by_reason: { reason: string; count: number }[];
+  view_distribution: { bucket: string; count: number }[];
+};
+
+/** 日別の投稿数・表示数・共鳴数・消滅数の推移を取得（JST基準、admin/viewer閲覧可） */
+export async function getDailyTrends(days: number = 30): Promise<DailyTrend[]> {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+
+  const n = Math.min(Math.max(Math.floor(days) || 30, 1), 365);
+  const { data, error } = await supabase.rpc("get_daily_trend", { since_days: n });
+  if (error) {
+    console.error("Error fetching daily trend:", error);
+    throw new Error("日次トレンドの取得に失敗しました");
+  }
+  return (data ?? []) as DailyTrend[];
+}
+
+/** 投稿の寿命・消滅サマリーを取得（admin/viewer閲覧可） */
+export async function getLifecycleSummary(): Promise<LifecycleSummary> {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase.rpc("get_lifecycle_summary");
+  if (error) {
+    console.error("Error fetching lifecycle summary:", error);
+    throw new Error("寿命サマリーの取得に失敗しました");
+  }
+  return (data ?? null) as LifecycleSummary;
+}
+
+export type PrBucket = {
+  day_rows: number;
+  views: number;
+  resonances: number;
+  avg_daily_views: number;
+  avg_daily_resonances: number;
+};
+
+export type PrEffect = {
+  total_periods: number;
+  active_periods: number;
+  pr_posts: number;
+  pr: PrBucket;
+  non_pr_same_posts: PrBucket;
+  non_pr_other_posts: PrBucket;
+  lift_daily_views_pct: number | null;
+  lift_daily_resonances_pct: number | null;
+};
+
+export type BoostStats = {
+  alive_total: number;
+  never_shown: number;
+  starved: number;
+  full_life_ratio: number;
+  view_distribution: { bucket: string; count: number; avg_age_days: number }[];
+};
+
+/** PR効果測定: PR期間中の露出・共鳴 vs PR外の差分を取得（admin/viewer閲覧可） */
+export async function getPrEffect(): Promise<PrEffect> {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase.rpc("get_pr_effect");
+  if (error) {
+    console.error("Error fetching PR effect:", error);
+    throw new Error("PR効果データの取得に失敗しました");
+  }
+  return (data ?? null) as PrEffect;
+}
+
+/** 微ブースト効果検証: 露出の偏り・飢餓投稿・寿命完遂率を取得（admin/viewer閲覧可） */
+export async function getBoostStats(): Promise<BoostStats> {
+  const role = await getAdminRole();
+  if (!role) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase.rpc("get_boost_stats");
+  if (error) {
+    console.error("Error fetching boost stats:", error);
+    throw new Error("ブースト統計の取得に失敗しました");
+  }
+  return (data ?? null) as BoostStats;
 }

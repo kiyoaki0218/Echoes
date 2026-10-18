@@ -7,6 +7,68 @@
 
 ## 📜 更新履歴一覧
 
+### 📜 2026-10-17 (25回目)
+#### 19. 管理ダッシュボードへの分析ビュー追加（PR効果測定・微ブースト検証含む）（Phase 6）
+- **編集対象ファイル**:
+  - `supabase.sql`
+  - `src/app/actions/admin.ts`
+  - `src/app/admin/page.tsx`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - **管理画面に「分析」タブを新設し、ダッシュボード分析を可視化**:
+    - 日別推移グラフ: 直近7/30/90日（切替可）の投稿数・表示数・共鳴数・消滅数を棒グラフで表示（JST基準）。各指標を独自スケールで正規化し、値の大小が一目で分かるようにした。
+    - 寿命サマリー: 消滅投稿の平均最終表示数・最大表示数・平均生存時間・寿命完遂率に加え、消滅理由別/モード別/表示数分布の内訳をバー表示。
+    - **PR効果測定**: PR期間中の日次表示・共鳴リフト（%）を、同一投稿のPR外期間および一度もPRしていない参照群と比較して算出。
+    - **微ブースト効果検証（露出の偏り）**: 未表示投稿（view=0）・飢餓投稿（3日経過で2回以下）の件数と割合、寿命完遂率、生存中投稿の表示回数分布（平均経過日数付き）を表示。ブーストが機能していれば未表示・飢餓が少数に収まり完遂率が高くなる、という検証仮説をそのまま確認できる形にした。
+- **具体的なプログラムの編集内容**:
+  - `supabase.sql`:
+    - `echo_pr_periods` テーブルを追加（`post_id`, `started_at`, `ended_at`）。PR ON/OFF の開始・終了時刻を記録し、`ended_at IS NULL` が「現在PR中」。RLSは既存テーブルと同じ読取/挿入/更新公開・削除非公開の設計。
+    - `get_pr_effect()` 関数を追加。`echo_daily_stats` をPR期間内外に分類し、PR期間中の日次表示/共鳴 vs 同一投稿のPR外 vs 参照群（一度もPRしない投稿）の3群比較で、日次平均とリフト（%）をJSONで返却。
+    - `get_boost_stats()` 関数を追加。生存中投稿の総数・未表示数（`view_count=0`）・飢餓投稿数（3日経過で2回以下）、`echo_lifecycles` からの寿命完遂率（`death_reason='view_limit'` の割合）、表示回数バケット（0/1-2/3-5/6-10/11-20/21+）ごとの件数と平均経過日数をJSONで返却。
+  - `src/app/actions/admin.ts`:
+    - `togglePromoteEcho()` を拡張し、PR切替時に `echo_pr_periods` へ開始/終了時刻を記録（記録失敗時はPR切替本体を妨げない設計）。効果測定のためのPR期間の自動収集。
+    - `PrBucket` / `PrEffect` / `BoostStats` 型と `getPrEffect()` / `getBoostStats()` サーバーアクションを追加（`getAdminRole()` で認可チェック、admin/viewer閲覧可）。
+  - `src/app/admin/page.tsx`:
+    - ページタブの型・タブボタンに `analytics`（分析・BarChart2アイコン）を追加。
+    - 分析用ステート（`trends` / `lifecycle` / `prEffect` / `boostStats` / `trendDays` / ローディング・エラー）と `fetchAnalytics()` を追加。タブ表示時・期間変更時に4つのRPCアクションを並行取得。
+    - 分析タブのJSXを追加（日別推移グラフ・寿命サマリー・PR効果測定・微ブースト効果検証の4セクション、7/30/90日切替・更新ボタン・空/ローディング/エラー表示込み）。
+- **注意点**:
+  - `supabase.sql` の変更は本番Supabase DBに別途適用（マイグレーション）が必要です。適用前にPR効果・ブースト統計は取得できません。
+  - PR効果測定は `echo_daily_stats`（タスク18）とPR期間記録の組み合わせのため、過去にPRされていた投稿の期間ログは含みません（今後の計測分から収集）。
+
+### 📜 2026-10-17 (24回目)
+#### 18. ダッシュボード分析のための測定データ基盤（Phase 6）
+- **編集対象ファイル**:
+  - `supabase.sql`
+  - `src/app/actions/admin.ts`
+  - `TODO.md`
+  - `CHANGELOG.md`
+- **わかりやすい編集内容**:
+  - **物理削除後も分析できる測定データ基盤を構築**:
+    - 投稿は閲覧上限到達で物理削除（復元不可）されるため、消滅後の分析には事前蓄積が必須。投稿ID・日付・集計値のみを保持する集計テーブルを新設。
+    - **日次集計テーブル `echo_daily_stats`**: 投稿ごと・日ごと（JST基準）に表示数・共鳴数を蓄積。閲覧（`increment_view`）・共鳴（`resonate_post`）のRPC内で自動的にアップサート。
+    - **消滅記録テーブル `echo_lifecycles`**: 物理削除された投稿の最終状態（作成日時・消滅日時・消滅理由（寿命到達/管理者削除）・最終閲覧数/寿命/共鳴数・PR有無・引用有無）を保存。**本文は保存せず、長さのみ保持**するプライバシー配慮の設計。
+    - **消滅自動記録トリガー**: `echoes` テーブルの `AFTER DELETE` トリガーで、寿命到達によるRPC削除も管理者の強制削除もどの経路でも消滅を自動記録（`death_reason` はトランザクションローカル設定で区別）。
+    - **集計RPC**: `get_daily_trend(since_days)`（日別の投稿数・表示数・共鳴数・消滅数の推移、JST基準）と `get_lifecycle_summary()`（消滅投稿の平均寿命・表示数分布・モード別/理由別内訳）を追加。
+  - **個人を特定できる情報は一切保存しない**（投稿ID・日付・集計値のみ、クライアント識別子なし）。
+  - **管理画面用サーバーアクション整備**: admin/viewerロールで閲覧可能な `getDailyTrends()` / `getLifecycleSummary()` を追加（タスク19の分析ビュー実装で使用）。
+- **具体的なプログラムの編集内容**:
+  - `supabase.sql`:
+    - `echo_daily_stats` テーブル定義（`post_id`, `day`（PK）, `views`, `resonances`）およびRLS（読取/挿入/更新公開、削除ポリシーは意図的に未設定=測定データ保護）を追加。
+    - `echo_lifecycles` テーブル定義（`post_id`（PK）, `mode`, `content_length`, `created_at`, `died_at`, `death_reason`, `final_view_count`, `final_max_views`, `final_resonance_count`, `is_promoted`, `had_quote`）およびRLS（読取公開のみ、書き込みはSECURITY DEFINERトリガー経由のみ）を追加。
+    - `record_echo_lifecycle()` 関数（SECURITY DEFINER, `search_path = public`）と `trg_record_echo_lifecycle` トリガーを追加。`on conflict (post_id) do nothing` で二重記録を防止。
+    - `increment_view(post_id)` 関数を `CREATE OR REPLACE` で上書き。閲覧時に `echo_daily_stats` へ当日（JST）の表示数をupsert。寿命到達時は `set_config('app.echo_death_reason', 'view_limit', true)` で消滅理由をトリガーに伝達。
+    - `resonate_post(post_id)` 関数を `CREATE OR REPLACE` で上書き。共鳴時に `echo_daily_stats` へ当日の共鳴数をupsert（注: アン共鳴はクライアント直接UPDATEのため非計上）。
+    - `get_daily_trend(since_days integer)` 関数を追加。`generate_series` で日付軸を生成し、生存中投稿（`echoes`）+ 消滅済み（`echo_lifecycles`）の和で全数カバーした日別投稿数、表示数・共鳴数・消滅数をJSONで返却。
+    - `get_lifecycle_summary()` 関数を追加。消滅投稿の総数・平均/最大最終閲覧数・平均寿命時間・モード別・消滅理由別・表示数分布（0-9/10-29/30-49/50-79/80+）をJSONで返却。
+  - `src/app/actions/admin.ts`:
+    - `DailyTrend` / `LifecycleSummary` 型をexport。
+    - `getDailyTrends(days = 30)` / `getLifecycleSummary()` サーバーアクションを追加。両方とも `getAdminRole()` で認可チェック（admin/viewer閲覧可）。
+- **注意点**:
+  - `supabase.sql` の変更は本番Supabase DBに別途適用（マイグレーション）が必要です。
+  - モバイル版（`mobile/`）は更新方針を見送り中ですが、モバイルも同じRPCを呼ぶため集計は自動的に行われます。
+
 ### 📅 2026-10-17 (22回目)
 #### 14. 意見（フィードバック）フォームの設置 & 管理者ダッシュボード対応
 - **編集対象ファイル**:
@@ -34,6 +96,22 @@
     - フッターに「ご意見」リンクボタンを追加、フィードバック入力・送信モーダルを実装。
   - `src/app/admin/page.tsx`:
     - 「ご意見・ご要望」タブと一覧ビュー、ステータス変更セレクトボックス、削除ボタンを追加。
+
+### 📜 2026-10-17 (23回目)
+#### 15. 表示回数が少ない投稿の露出底上げアルゴリズム（微ブースト機能）
+- **編集対象ファイル**:
+  - `supabase.sql`
+  - `mobile/src/screens/MainScreen.tsx`
+- **わかりやすい編集内容**:
+  - **微ブースト機能の実装**:
+    - 表示回数（閲覧数）が比較的少ない投稿を、わずかな重み付けで優先的に表示されやすくするアルゴリズムを導入。
+    - サーバー側（Supabase RPC）では `get_random_echo` 関数において、ランダム選択時に `random() * (1.0 + 0.15 / (view_count + 1.0))` による重み付けを適用し、閲覧数が少ない投稿ほど選ばれる確率がわずかに上昇。
+    - モバイルアプリ（Expo）でも同様の微ブーストロジックを `all` モードのランダム選択時に適用し、Web・Mobile両方で一貫した露出調整を実現。
+- **具体的なプログラムの編集内容**:
+  - `supabase.sql`:
+    - `get_random_echo(post_mode)` 関数の両ブランチ（プロモーション有効時・通常時）に重み付け付きソート `ORDER BY random() * (1.0 + 0.15 / (view_count + 1.0)) DESC` を適用。
+  - `mobile/src/screens/MainScreen.tsx`:
+    - `all` モードでの投稿取得時に、取得した最大20件に対して同様の重み付け計算を行い、重み付け降順で最上位の投稿を選択するように変更。
 
 ### 📜 2026-10-17 (21回目)
 #### プライバシーポリシー & 利用規約の詳細条項整備・拡充
